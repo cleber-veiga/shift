@@ -1,0 +1,160 @@
+erDiagram
+    USERS {
+        UUID id PK
+        VARCHAR email UK
+        VARCHAR full_name
+        VARCHAR hashed_password
+        VARCHAR auth_provider
+        VARCHAR provider_subject UK
+        BOOLEAN is_verified
+        BOOLEAN is_active
+        TIMESTAMPTZ last_login_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    REFRESH_TOKENS {
+        UUID id PK
+        UUID user_id FK
+        UUID jti UK
+        VARCHAR token_hash
+        VARCHAR user_agent
+        TIMESTAMPTZ expires_at
+        TIMESTAMPTZ revoked_at
+        TIMESTAMPTZ created_at
+    }
+
+    ORGANIZATIONS {
+        UUID id PK
+        VARCHAR name
+        VARCHAR slug UK
+        TIMESTAMPTZ created_at
+    }
+
+    ORGANIZATION_MEMBERS {
+        UUID id PK
+        UUID user_id FK
+        UUID organization_id FK
+        VARCHAR role
+        TIMESTAMPTZ created_at
+    }
+
+    WORKSPACES {
+        UUID id PK
+        VARCHAR name
+        UUID organization_id FK
+        UUID created_by_id FK
+        TIMESTAMPTZ created_at
+    }
+
+    WORKSPACE_MEMBERS {
+        UUID id PK
+        UUID user_id FK
+        UUID workspace_id FK
+        VARCHAR role
+        JSONB permission_overrides
+        TIMESTAMPTZ created_at
+    }
+
+    CONGLOMERATES {
+        UUID id PK
+        UUID organization_id FK
+        VARCHAR name
+        TEXT description
+        BOOLEAN is_active
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    COMPETITORS {
+        UUID id PK
+        UUID organization_id FK
+        TEXT description
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    ESTABLISHMENTS {
+        UUID id PK
+        UUID conglomerate_id FK
+        VARCHAR corporate_name
+        VARCHAR trade_name
+        VARCHAR cnpj UK
+        VARCHAR cnae
+        VARCHAR state_registration
+        VARCHAR city
+        VARCHAR state
+        TEXT notes
+        BOOLEAN is_active
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    CONTACTS {
+        UUID id PK
+        UUID workspace_id FK
+        UUID conglomerate_id FK
+        UUID establishment_id FK
+        VARCHAR name
+        VARCHAR cpf
+        VARCHAR whatsapp
+        VARCHAR email
+        VARCHAR job_title
+        BOOLEAN is_primary
+        TEXT notes
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    PROJECTS {
+        UUID id PK
+        UUID workspace_id FK
+        UUID conglomerate_id FK
+        UUID competitor_id FK
+        UUID created_by_id FK
+        VARCHAR name
+        VARCHAR description
+        DATE start_date
+        DATE end_date
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    DATA_SOURCES {
+        UUID id PK
+        UUID project_id FK
+        UUID created_by_id FK
+        VARCHAR name
+        VARCHAR source_type
+        JSONB connection_config
+        JSONB file_config
+        JSONB secret_config
+        BOOLEAN is_active
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    USERS ||--o{ REFRESH_TOKENS : "has"
+    USERS ||--o{ ORGANIZATION_MEMBERS : "is member"
+    ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : "has members"
+
+    ORGANIZATIONS ||--o{ WORKSPACES : "has"
+    USERS ||--o{ WORKSPACES : "created"
+    USERS ||--o{ WORKSPACE_MEMBERS : "is member"
+    WORKSPACES ||--o{ WORKSPACE_MEMBERS : "has members"
+
+    ORGANIZATIONS ||--o{ CONGLOMERATES : "has"
+    ORGANIZATIONS ||--o{ COMPETITORS : "has"
+    CONGLOMERATES ||--o{ ESTABLISHMENTS : "has"
+
+    WORKSPACES ||--o{ CONTACTS : "has"
+    CONGLOMERATES ||--o{ CONTACTS : "groups"
+    ESTABLISHMENTS ||--o{ CONTACTS : "optional link"
+
+    WORKSPACES ||--o{ PROJECTS : "has"
+    CONGLOMERATES ||--o{ PROJECTS : "belongs to"
+    COMPETITORS ||--o{ PROJECTS : "references"
+    USERS ||--o{ PROJECTS : "created"
+
+    PROJECTS ||--o{ DATA_SOURCES : "has"
+    USERS ||--o{ DATA_SOURCES : "created"
