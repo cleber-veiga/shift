@@ -41,7 +41,6 @@ class Competitor(Base):
         back_populates="competitor",
         cascade="all, delete-orphan",
     )
-    projects: Mapped[list["Project"]] = relationship(back_populates="competitor")
 
 
 class CompetitorProduct(Base):

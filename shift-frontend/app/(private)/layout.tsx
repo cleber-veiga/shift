@@ -6,10 +6,13 @@ import { Header } from "@/components/dashboard/header"
 import { useState } from "react"
 import { useDashboard } from "@/lib/context/dashboard-context"
 import { MorphLoader } from "@/components/ui/morph-loader"
+import { usePathname } from "next/navigation"
 
 function PrivateLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const { isLoading, error } = useDashboard()
+  const pathname = usePathname()
+  const isWorkflowBuilder = pathname.startsWith("/fluxos/novo")
 
   if (isLoading) {
     return (
@@ -38,7 +41,7 @@ function PrivateLayoutContent({ children }: { children: React.ReactNode }) {
             sidebarVisible={sidebarVisible}
             setSidebarVisible={setSidebarVisible}
           />
-          <main className="flex-1 p-4 sm:p-6">
+          <main className={isWorkflowBuilder ? "flex-1 p-0" : "flex-1 p-4 sm:p-6"}>
             {children}
           </main>
         </div>

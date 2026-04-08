@@ -16,6 +16,7 @@ from app.schemas.workspace import (
     WorkspaceMemberCreate,
     WorkspaceMemberRead,
     WorkspaceRead,
+    WorkspaceUpdate,
 )
 
 router = APIRouter()
@@ -110,6 +111,47 @@ async def list_organization_workspaces(
         .order_by(Workspace.created_at.desc())
     )
     return list(workspaces)
+
+
+@router.put("/{workspace_id}", response_model=WorkspaceRead)
+async def update_workspace(
+    workspace_id: UUID,
+    payload: WorkspaceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Workspace:
+    workspace = await db.scalar(select(Workspace).where(Workspace.id == workspace_id))
+    if not workspace:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found.")
+
+    actor_workspace_membership = await get_workspace_member(db, workspace_id, current_user.id)
+    actor_org_membership = await get_org_member(db, workspace.organization_id, current_user.id)
+
+    is_allowed = (
+        actor_workspace_membership is not None and actor_workspace_membership.role == WorkspaceMemberRole.MANAGER
+    ) or (
+        actor_org_membership is not None
+        and actor_org_membership.role in {OrganizationMemberRole.OWNER, OrganizationMemberRole.MANAGER}
+    )
+    if not is_allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+
+    normalized_name = payload.name.strip()
+    existing_workspace = await db.scalar(
+        select(Workspace).where(
+            Workspace.organization_id == workspace.organization_id,
+            Workspace.name == normalized_name,
+            Workspace.id != workspace.id,
+        )
+    )
+    if existing_workspace:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Workspace already exists.")
+
+    workspace.name = normalized_name
+
+    await db.commit()
+    await db.refresh(workspace)
+    return workspace
 
 
 @router.post("/{workspace_id}/members", response_model=WorkspaceMemberRead)

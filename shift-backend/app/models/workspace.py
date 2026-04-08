@@ -54,3 +54,7 @@ class Workspace(Base):
         back_populates="workspace",
         cascade="all, delete-orphan",
     )
+    players: Mapped[list["WorkspacePlayer"]] = relationship(
+        back_populates="workspace",
+        cascade="all, delete-orphan",
+    )

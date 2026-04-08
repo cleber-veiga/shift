@@ -25,6 +25,12 @@ from app.schemas.data_source import (
     DataSourceSQLExecuteResponse,
     DataSourceUpdate,
 )
+from app.schemas.extraction_job import ExtractionJobRead, ExtractionJobStartRequest, ExtractionJobStartResponse
+from app.schemas.extraction_template import (
+    ExtractionTemplateCreate,
+    ExtractionTemplateRead,
+    ExtractionTemplateUpdate,
+)
 from app.schemas.competitor import CompetitorCreate, CompetitorRead, CompetitorUpdate
 from app.schemas.competitor_schema_catalog import (
     CompetitorSchemaCatalogExecuteRequest,
@@ -39,6 +45,7 @@ from app.schemas.organization import (
     OrganizationRead,
 )
 from app.schemas.project import ProjectCreate, ProjectRead
+from app.schemas.project_extraction import ProjectExtractionCreate, ProjectExtractionRead
 from app.schemas.user import UserRead
 from app.schemas.workspace import (
     WorkspaceCreate,
@@ -46,6 +53,7 @@ from app.schemas.workspace import (
     WorkspaceMemberRead,
     WorkspaceRead,
 )
+from app.schemas.workspace_player import WorkspacePlayerCreate, WorkspacePlayerRead, WorkspacePlayerUpdate
 
 __all__ = (
     "UserRead",
@@ -63,6 +71,9 @@ __all__ = (
     "WorkspaceRead",
     "WorkspaceMemberCreate",
     "WorkspaceMemberRead",
+    "WorkspacePlayerCreate",
+    "WorkspacePlayerRead",
+    "WorkspacePlayerUpdate",
     "ConglomerateCreate",
     "ConglomerateRead",
     "ConglomerateUpdate",
@@ -87,6 +98,14 @@ __all__ = (
     "DataSourceConnectionTestResponse",
     "DataSourceSQLExecuteRequest",
     "DataSourceSQLExecuteResponse",
+    "ExtractionTemplateCreate",
+    "ExtractionTemplateRead",
+    "ExtractionTemplateUpdate",
+    "ProjectExtractionCreate",
+    "ProjectExtractionRead",
+    "ExtractionJobRead",
+    "ExtractionJobStartRequest",
+    "ExtractionJobStartResponse",
     "ProjectCreate",
     "ProjectRead",
 )

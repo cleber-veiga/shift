@@ -28,9 +28,9 @@ class Project(Base):
         nullable=False,
         index=True,
     )
-    competitor_id: Mapped[uuid.UUID | None] = mapped_column(
+    player_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("competitors.id", ondelete="RESTRICT"),
+        ForeignKey("workspace_players.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -58,7 +58,7 @@ class Project(Base):
 
     workspace: Mapped["Workspace"] = relationship(back_populates="projects")
     conglomerate: Mapped["Conglomerate"] = relationship(back_populates="projects")
-    competitor: Mapped["Competitor | None"] = relationship(back_populates="projects")
+    player: Mapped["WorkspacePlayer | None"] = relationship(back_populates="projects")
     created_by: Mapped["User"] = relationship(back_populates="projects_created")
     data_sources: Mapped[list["DataSource"]] = relationship(
         back_populates="project",

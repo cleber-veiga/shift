@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=2, max_length=255)
-    competitor_id: UUID
+    player_id: UUID
     conglomerate_id: UUID
     start_date: date
     end_date: date
@@ -25,7 +25,7 @@ class ProjectRead(BaseModel):
     id: UUID
     workspace_id: UUID
     conglomerate_id: UUID
-    competitor_id: UUID | None
+    player_id: UUID | None
     created_by_id: UUID
     name: str
     description: str | None

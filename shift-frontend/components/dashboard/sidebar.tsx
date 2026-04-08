@@ -2,10 +2,10 @@
 
 import { MorphLoader } from "@/components/ui/morph-loader"
 import {
-  listOrganizationCompetitors,
   listOrganizationConglomerates,
-  type Competitor,
+  listWorkspacePlayers,
   type Conglomerate,
+  type WorkspacePlayer,
 } from "@/lib/auth"
 import { useDashboard } from "@/lib/context/dashboard-context"
 import { cn } from "@/lib/utils"
@@ -14,10 +14,13 @@ import {
   Check,
   ChevronDown,
   Database,
+  Download,
+  GitBranch,
   FolderKanban,
   Home,
   LayoutTemplate,
   Layers,
+  Pencil,
   Plus,
   Users,
   X,
@@ -32,16 +35,30 @@ type MenuItem = {
   icon: React.ComponentType<{ className?: string }>
 }
 
+type ProjectMenuItem = {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  requiresProject?: boolean
+  getHref: (projectId: string) => string
+}
+
 const mainMenus: MenuItem[] = [
   { label: "Visão Geral", href: "/home", icon: Home },
   { label: "Conglomerados", href: "/conglomerados", icon: Layers },
   { label: "Concorrentes", href: "/concorrentes", icon: Building2 },
   { label: "Contatos", href: "/contatos", icon: Users },
   { label: "Templates", href: "/templates", icon: LayoutTemplate },
+  { label: "Fluxos", href: "/fluxos", icon: GitBranch },
 ]
 
-const projectMenus: MenuItem[] = [
-  { label: "Fontes de Dados", href: "/data-sources", icon: Database },
+const projectMenus: ProjectMenuItem[] = [
+  { label: "Fontes de Dados", icon: Database, getHref: () => "/data-sources" },
+  {
+    label: "Extrações",
+    icon: Download,
+    requiresProject: true,
+    getHref: (projectId: string) => `/projetos/${projectId}/extracoes`,
+  },
 ]
 
 const orgRoleLabels: Record<string, string> = {
@@ -63,12 +80,13 @@ export function Sidebar() {
   const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [projectName, setProjectName] = useState("")
   const [projectDescription, setProjectDescription] = useState("")
   const [projectConglomerateId, setProjectConglomerateId] = useState("")
   const [projectCompetitorId, setProjectCompetitorId] = useState("")
   const [availableConglomerates, setAvailableConglomerates] = useState<Conglomerate[]>([])
-  const [availableCompetitors, setAvailableCompetitors] = useState<Competitor[]>([])
+  const [availableCompetitors, setAvailableCompetitors] = useState<WorkspacePlayer[]>([])
   const [isLoadingProjectDependencies, setIsLoadingProjectDependencies] = useState(false)
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [createProjectError, setCreateProjectError] = useState("")
@@ -86,6 +104,7 @@ export function Sidebar() {
     availableProjects,
     setSelectedProjectId,
     createProjectAndSelect,
+    updateProjectAndRefresh,
   } = useDashboard()
 
   const handleProjectSelect = (projectId: string) => {
@@ -93,10 +112,29 @@ export function Sidebar() {
     setProjectMenuOpen(false)
   }
 
+  const handleProjectEdit = (projectId: string) => {
+    const project = availableProjects.find((item) => item.id === projectId)
+    if (!project) return
+
+    setSelectedProjectId(projectId)
+    setProjectMenuOpen(false)
+
+    setProjectName(project.name)
+    setProjectDescription(project.description ?? "")
+    setProjectConglomerateId(project.conglomerate_id)
+    setProjectCompetitorId(project.player_id ?? "")
+    setProjectStartDate(project.start_date)
+    setProjectEndDate(project.end_date)
+    setEditingProjectId(project.id)
+    setCreateProjectError("")
+    setCreateProjectOpen(true)
+  }
+
   useEffect(() => {
     if (!createProjectOpen) return
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isCreatingProject) {
+        setEditingProjectId(null)
         setCreateProjectOpen(false)
         setCreateProjectError("")
       }
@@ -115,14 +153,14 @@ export function Sidebar() {
   }, [createProjectOpen])
 
   useEffect(() => {
-    if (!createProjectOpen || !selectedOrganization?.id) return
+    if (!createProjectOpen || !selectedOrganization?.id || !selectedWorkspace?.id) return
 
     let active = true
     setIsLoadingProjectDependencies(true)
 
     Promise.all([
       listOrganizationConglomerates(selectedOrganization.id),
-      listOrganizationCompetitors(selectedOrganization.id),
+      listWorkspacePlayers(selectedWorkspace.id),
     ])
       .then(([conglomerates, competitors]) => {
         if (!active) return
@@ -152,16 +190,26 @@ export function Sidebar() {
     return () => {
       active = false
     }
-  }, [createProjectOpen, selectedOrganization?.id])
+  }, [createProjectOpen, selectedOrganization?.id, selectedWorkspace?.id])
 
   const openCreateProject = () => {
     setProjectMenuOpen(false)
+    setEditingProjectId(null)
+    setProjectName("")
+    setProjectDescription("")
+    setProjectConglomerateId("")
+    setProjectCompetitorId("")
+    setProjectStartDate(formatDateInput(new Date()))
+    const next = new Date()
+    next.setDate(next.getDate() + 30)
+    setProjectEndDate(formatDateInput(next))
     setCreateProjectError("")
     setCreateProjectOpen(true)
   }
 
   const closeCreateProject = () => {
     if (isCreatingProject) return
+    setEditingProjectId(null)
     setCreateProjectError("")
     setCreateProjectOpen(false)
   }
@@ -193,20 +241,40 @@ export function Sidebar() {
     setCreateProjectError("")
 
     try {
-      await createProjectAndSelect({
-        workspace_id: selectedWorkspace.id,
-        name: projectName.trim(),
-        competitor_id: projectCompetitorId,
-        conglomerate_id: projectConglomerateId,
-        start_date: projectStartDate,
-        end_date: projectEndDate,
-        description: projectDescription.trim() ? projectDescription.trim() : null,
-      })
-      setProjectName("")
-      setProjectDescription("")
+      if (editingProjectId) {
+        await updateProjectAndRefresh({
+          project_id: editingProjectId,
+          workspace_id: selectedWorkspace.id,
+          name: projectName.trim(),
+          player_id: projectCompetitorId,
+          conglomerate_id: projectConglomerateId,
+          start_date: projectStartDate,
+          end_date: projectEndDate,
+          description: projectDescription.trim() ? projectDescription.trim() : null,
+        })
+      } else {
+        await createProjectAndSelect({
+          workspace_id: selectedWorkspace.id,
+          name: projectName.trim(),
+          player_id: projectCompetitorId,
+          conglomerate_id: projectConglomerateId,
+          start_date: projectStartDate,
+          end_date: projectEndDate,
+          description: projectDescription.trim() ? projectDescription.trim() : null,
+        })
+        setProjectName("")
+        setProjectDescription("")
+      }
+      setEditingProjectId(null)
       setCreateProjectOpen(false)
     } catch (err) {
-      setCreateProjectError(err instanceof Error ? err.message : "Falha ao cadastrar projeto.")
+      setCreateProjectError(
+        err instanceof Error
+          ? err.message
+          : editingProjectId
+            ? "Falha ao editar projeto."
+            : "Falha ao cadastrar projeto."
+      )
     } finally {
       setIsCreatingProject(false)
     }
@@ -251,20 +319,36 @@ export function Sidebar() {
             </p>
             <div className="max-h-56 space-y-1 overflow-auto">
               {availableProjects.map((project) => (
-                <button
+                <div
                   key={project.id}
-                  type="button"
-                  onClick={() => handleProjectSelect(project.id)}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-accent"
+                  className="flex items-center gap-1 rounded-md px-1 py-1 hover:bg-accent"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{project.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedOrganization ? orgRoleLabels[selectedOrganization.role] : "Membro"}
-                    </p>
-                  </div>
-                  {selectedProject?.id === project.id && <Check className="size-4 text-primary" />}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleProjectSelect(project.id)}
+                    className="flex min-w-0 flex-1 items-center justify-between rounded-md px-1 py-1 text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{project.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedOrganization ? orgRoleLabels[selectedOrganization.role] : "Membro"}
+                      </p>
+                    </div>
+                    {selectedProject?.id === project.id ? <Check className="size-4 text-primary" /> : null}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleProjectEdit(project.id)
+                    }}
+                    className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-background hover:text-foreground"
+                    aria-label={`Editar projeto ${project.name}`}
+                    title="Editar projeto"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                </div>
               ))}
               {availableProjects.length === 0 ? (
                 <p className="px-2 py-2 text-sm text-muted-foreground">Sem projetos neste workspace.</p>
@@ -314,21 +398,32 @@ export function Sidebar() {
             Projeto
           </p>
           <div className="space-y-1">
-            {projectMenus.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                  isItemActive(item.href)
-                    ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-              </Link>
-            ))}
+            {projectMenus.map((item) => {
+              const projectId = selectedProject?.id ?? ""
+              const href = item.getHref(projectId)
+              const isDisabled = !projectId
+
+              return (
+                <Link
+                  key={item.label}
+                  href={isDisabled ? "#" : href}
+                  onClick={(event) => {
+                    if (isDisabled) event.preventDefault()
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    !isDisabled && isItemActive(href)
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    isDisabled && "cursor-not-allowed opacity-50 hover:bg-transparent hover:text-muted-foreground"
+                  )}
+                  aria-disabled={isDisabled}
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                </Link>
+              )
+            })}
           </div>
         </section>
       </nav>
@@ -342,13 +437,15 @@ export function Sidebar() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Cadastrar projeto"
+            aria-label={editingProjectId ? "Editar projeto" : "Cadastrar projeto"}
             className="w-[min(560px,96vw)] rounded-2xl border border-border bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div>
-                <p className="text-base font-semibold text-foreground">Cadastrar projeto</p>
+                <p className="text-base font-semibold text-foreground">
+                  {editingProjectId ? "Editar projeto" : "Cadastrar projeto"}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {selectedWorkspace?.name ? `Workspace: ${selectedWorkspace.name}` : "Selecione um workspace."}
                 </p>
@@ -503,7 +600,7 @@ export function Sidebar() {
                   className="inline-flex h-8 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isCreatingProject ? <MorphLoader className="size-3" /> : <Plus className="size-3" />}
-                  Cadastrar
+                  {editingProjectId ? "Salvar" : "Cadastrar"}
                 </button>
               </div>
             </form>

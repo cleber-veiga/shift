@@ -67,6 +67,36 @@ export type CreateWorkspacePayload = {
   erp_id?: string | null
 }
 
+export type UpdateWorkspacePayload = {
+  name?: string
+}
+
+export type WorkspacePlayerDatabaseType =
+  | "POSTGRESQL"
+  | "MYSQL"
+  | "SQLSERVER"
+  | "ORACLE"
+  | "FIREBIRD"
+  | "SQLITE"
+  | "SNOWFLAKE"
+
+export type WorkspacePlayer = {
+  id: string
+  workspace_id: string
+  name: string
+  database_type: WorkspacePlayerDatabaseType
+}
+
+export type CreateWorkspacePlayerPayload = {
+  name: string
+  database_type: WorkspacePlayerDatabaseType
+}
+
+export type UpdateWorkspacePlayerPayload = {
+  name?: string
+  database_type?: WorkspacePlayerDatabaseType
+}
+
 export type Workspace = {
   id: string
   name: string
@@ -80,7 +110,7 @@ export type Project = {
   id: string
   workspace_id: string
   conglomerate_id: string
-  competitor_id: string | null
+  player_id: string | null
   created_by_id: string
   name: string
   description: string | null
@@ -92,12 +122,14 @@ export type Project = {
 
 export type CreateProjectPayload = {
   name: string
-  competitor_id: string
+  player_id: string
   conglomerate_id: string
   start_date: string
   end_date: string
   description?: string | null
 }
+
+export type UpdateProjectPayload = Partial<CreateProjectPayload>
 
 export type DataSourceType =
   | "POSTGRESQL"
@@ -255,6 +287,56 @@ export type ExecuteSchemaCatalogResponse = {
   latency_ms: number | null
   truncated: boolean
   saved_catalog_id: string | null
+}
+
+export type ExtractionMode = "SCHEMA_SELECTION" | "CUSTOM_SQL"
+
+export type CompetitorExtractionTemplate = {
+  id: string
+  competitor_id: string
+  name: string
+  extraction_mode: ExtractionMode
+  schema_selection_config: Record<string, unknown> | null
+  custom_sql_query: string | null
+  default_batch_size: number
+  created_by_id: string
+  created_at: string
+  updated_at: string
+}
+
+export type CreateCompetitorExtractionTemplatePayload = {
+  name: string
+  competitor_id: string
+  extraction_mode: ExtractionMode
+  default_batch_size: number
+  schema_selection_config?: Record<string, unknown> | null
+  custom_sql_query?: string | null
+}
+
+export type ProjectExtraction = {
+  id: string
+  project_id: string
+  data_source_id: string
+  template_id: string
+  name: string
+  is_active: boolean
+  batch_size: number
+  created_by_id: string
+  created_at: string
+  updated_at: string
+  last_execution_status?: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | null
+  total_rows_extracted?: number | null
+  last_execution?: {
+    status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED"
+    total_rows_extracted: number | null
+  } | null
+}
+
+export type CreateProjectExtractionPayload = {
+  name: string
+  data_source_id: string
+  template_id: string
+  batch_size?: number | null
 }
 
 export type WorkspaceSchemaCatalog = {
@@ -438,9 +520,30 @@ function isAccessTokenExpired(session: AuthSession) {
 
 async function parseApiError(response: Response): Promise<string> {
   try {
-    const data = (await response.json()) as { detail?: string }
+    const data = (await response.json()) as {
+      detail?:
+        | string
+        | Array<{
+            loc?: Array<string | number>
+            msg?: string
+          }>
+    }
     if (typeof data.detail === "string" && data.detail.trim().length > 0) {
       return data.detail
+    }
+    if (Array.isArray(data.detail) && data.detail.length > 0) {
+      const first = data.detail[0]
+      const msg = typeof first?.msg === "string" ? first.msg.trim() : ""
+      const loc =
+        Array.isArray(first?.loc) && first.loc.length > 0
+          ? first.loc.map((item) => String(item)).join(".")
+          : ""
+      if (msg && loc) {
+        return `${loc}: ${msg}`
+      }
+      if (msg) {
+        return msg
+      }
     }
   } catch {
     // ignore parse error and return generic message
@@ -659,11 +762,68 @@ export async function createWorkspace(payload: CreateWorkspacePayload): Promise<
   })
 }
 
+export async function updateWorkspace(
+  workspaceId: string,
+  payload: UpdateWorkspacePayload
+): Promise<Workspace> {
+  return authorizedRequest<Workspace>(`/workspaces/${workspaceId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function listWorkspaceProjects(
   workspaceId: string
 ): Promise<Project[]> {
   return authorizedRequest<Project[]>(`/workspaces/${workspaceId}/projects`, {
     method: "GET",
+  })
+}
+
+export async function createWorkspacePlayer(
+  workspaceId: string,
+  payload: CreateWorkspacePlayerPayload
+): Promise<WorkspacePlayer> {
+  return authorizedRequest<WorkspacePlayer>(`/workspaces/${workspaceId}/players`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function listWorkspacePlayers(
+  workspaceId: string
+): Promise<WorkspacePlayer[]> {
+  return authorizedRequest<WorkspacePlayer[]>(`/workspaces/${workspaceId}/players`, {
+    method: "GET",
+  })
+}
+
+export async function getWorkspacePlayer(
+  workspaceId: string,
+  playerId: string
+): Promise<WorkspacePlayer> {
+  return authorizedRequest<WorkspacePlayer>(`/workspaces/${workspaceId}/players/${playerId}`, {
+    method: "GET",
+  })
+}
+
+export async function updateWorkspacePlayer(
+  workspaceId: string,
+  playerId: string,
+  payload: UpdateWorkspacePlayerPayload
+): Promise<WorkspacePlayer> {
+  return authorizedRequest<WorkspacePlayer>(`/workspaces/${workspaceId}/players/${playerId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteWorkspacePlayer(
+  workspaceId: string,
+  playerId: string
+): Promise<void> {
+  return authorizedRequest<void>(`/workspaces/${workspaceId}/players/${playerId}`, {
+    method: "DELETE",
   })
 }
 
@@ -673,6 +833,16 @@ export async function createWorkspaceProject(
 ): Promise<Project> {
   return authorizedRequest<Project>(`/workspaces/${workspaceId}/projects`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateProject(
+  projectId: string,
+  payload: UpdateProjectPayload
+): Promise<Project> {
+  return authorizedRequest<Project>(`/projects/${projectId}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   })
 }
@@ -743,6 +913,28 @@ export async function executeCompetitorSchemaCatalog(
 ): Promise<ExecuteSchemaCatalogResponse> {
   return authorizedRequest<ExecuteSchemaCatalogResponse>(
     `/competitors/${competitor_id}/schema-catalogs/execute`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function listCompetitorExtractionTemplates(
+  competitor_id: string
+): Promise<CompetitorExtractionTemplate[]> {
+  return authorizedRequest<CompetitorExtractionTemplate[]>(
+    `/competitors/${competitor_id}/extraction-templates`,
+    { method: "GET" }
+  )
+}
+
+export async function createCompetitorExtractionTemplate(
+  competitor_id: string,
+  payload: CreateCompetitorExtractionTemplatePayload
+): Promise<CompetitorExtractionTemplate> {
+  return authorizedRequest<CompetitorExtractionTemplate>(
+    `/competitors/${competitor_id}/extraction-templates`,
     {
       method: "POST",
       body: JSON.stringify(payload),
@@ -876,6 +1068,39 @@ export async function updateDataSource(
 export async function deleteDataSource(dataSourceId: string): Promise<void> {
   return authorizedRequest<void>(`/data-sources/${dataSourceId}`, {
     method: "DELETE",
+  })
+}
+
+export async function listProjectExtractions(projectId: string): Promise<ProjectExtraction[]> {
+  return authorizedRequest<ProjectExtraction[]>(`/projects/${projectId}/extractions`, {
+    method: "GET",
+  })
+}
+
+export async function listProjectExtractionTemplates(
+  projectId: string
+): Promise<CompetitorExtractionTemplate[]> {
+  return authorizedRequest<CompetitorExtractionTemplate[]>(
+    `/projects/${projectId}/extraction-templates`,
+    {
+      method: "GET",
+    }
+  )
+}
+
+export async function createProjectExtraction(
+  projectId: string,
+  payload: CreateProjectExtractionPayload
+): Promise<ProjectExtraction> {
+  return authorizedRequest<ProjectExtraction>(`/projects/${projectId}/extractions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function startProjectExtraction(projectExtractionId: string): Promise<void> {
+  return authorizedRequest<void>(`/project-extractions/${projectExtractionId}/start`, {
+    method: "POST",
   })
 }
 

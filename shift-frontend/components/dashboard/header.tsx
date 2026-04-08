@@ -1,15 +1,18 @@
-﻿"use client"
+﻿﻿﻿﻿"use client"
 
 import {
   Bell,
+  Boxes,
   Building2,
   Check,
   ChevronDown,
   ChevronRight,
-  FolderKanban,
+  Edit2,
   LogOut,
   PanelLeft,
+  Play,
   Plus,
+  Save,
   Settings,
   UserRound,
   X,
@@ -31,6 +34,20 @@ const orgRoleLabels: Record<string, string> = {
 interface HeaderProps {
   sidebarVisible: boolean
   setSidebarVisible: (visible: boolean) => void
+}
+
+function HeaderTooltipTrigger({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <div className="group/tooltip relative">
+      {children}
+      <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 -translate-x-1/2 opacity-0 transition-all duration-150 group-hover/tooltip:translate-y-0 group-hover/tooltip:opacity-100 group-focus-within/tooltip:translate-y-0 group-focus-within/tooltip:opacity-100">
+        <div className="whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground shadow-lg">
+          {text}
+        </div>
+        <div className="absolute left-1/2 top-0 size-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-l border-t border-border bg-card" />
+      </div>
+    </div>
+  )
 }
 
 export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
@@ -55,6 +72,7 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
   const [isLoadingErps, setIsLoadingErps] = useState(false)
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false)
   const [createWorkspaceError, setCreateWorkspaceError] = useState("")
+  const [workflowName, setWorkflowName] = useState("Novo fluxo")
 
   const {
     selectedOrganization,
@@ -81,6 +99,8 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
     if (pathname === "/home") return "Visão Geral"
     if (pathname.startsWith("/conglomerados")) return "Conglomerados"
     if (pathname.startsWith("/concorrentes")) return "Concorrentes"
+    if (pathname.startsWith("/fluxos")) return "Fluxos"
+    if (pathname.startsWith("/workspaces")) return "Workspaces"
     if (pathname.startsWith("/contatos")) return "Contatos"
     if (pathname.startsWith("/templates")) return "Templates"
     if (pathname.startsWith("/data-sources")) return "Fontes de Dados"
@@ -92,11 +112,15 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
       pathname === "/home" ||
       pathname.startsWith("/conglomerados") ||
       pathname.startsWith("/concorrentes") ||
+      pathname.startsWith("/fluxos") ||
+      pathname.startsWith("/workspaces") ||
       pathname.startsWith("/contatos") ||
       pathname.startsWith("/templates")
     if (isMainPath) return "Principal"
     return "Projeto"
   }
+
+  const isWorkflowBuilder = pathname.startsWith("/fluxos/novo")
 
   useEffect(() => {
     const onDocumentClick = (event: MouseEvent) => {
@@ -278,25 +302,63 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
             <span className="text-muted-foreground">{getGroupTitle()}</span>
             <ChevronRight className="size-4 text-muted-foreground/50" />
             <span className="font-medium text-foreground">{getPageTitle()}</span>
+            {isWorkflowBuilder ? (
+              <>
+                <ChevronRight className="size-4 text-muted-foreground/50" />
+                <input
+                  type="text"
+                  value={workflowName}
+                  onChange={(event) => setWorkflowName(event.target.value)}
+                  className="h-7 w-44 rounded-md border border-transparent bg-transparent px-2.5 text-xs text-foreground outline-none transition-all focus:bg-background/60 focus:ring-1 focus:ring-primary/20"
+                  aria-label="Nome do workflow"
+                />
+              </>
+            ) : null}
           </nav>
         </div>
 
         <div className="flex items-center gap-2">
+          {isWorkflowBuilder ? (
+            <>
+              <HeaderTooltipTrigger text="Salvar rascunho">
+                <button
+                  type="button"
+                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  aria-label="Salvar rascunho"
+                >
+                  <Save className="size-4" />
+                </button>
+              </HeaderTooltipTrigger>
+              <HeaderTooltipTrigger text="Publicar">
+                <button
+                  type="button"
+                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  aria-label="Publicar"
+                >
+                  <Play className="size-4" />
+                </button>
+              </HeaderTooltipTrigger>
+            </>
+          ) : null}
+
           <div ref={orgMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setOrgMenuOpen((current) => !current)}
-              className="inline-flex items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-accent/50 rounded-md"
-            >
-              <Building2 className="size-4 text-muted-foreground" />
-              <div className="leading-tight">
-                <p className="max-w-[120px] truncate font-medium">{selectedOrganization?.name}</p>
-                <p className="text-muted-foreground">
-                  {selectedOrganization ? orgRoleLabels[selectedOrganization.role] : ""}
-                </p>
-              </div>
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </button>
+            <HeaderTooltipTrigger text="Selecione a Organização">
+              <button
+                type="button"
+                onClick={() => setOrgMenuOpen((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-accent/50"
+                aria-label="Selecione a Organização"
+              >
+                <Building2 className="size-4 text-muted-foreground" />
+                <div className="leading-tight">
+                  <p className="max-w-[120px] truncate font-medium">{selectedOrganization?.name}</p>
+                  <p className="text-muted-foreground">
+                    {selectedOrganization ? orgRoleLabels[selectedOrganization.role] : ""}
+                  </p>
+                </div>
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </button>
+            </HeaderTooltipTrigger>
 
             {orgMenuOpen ? (
               <div className="absolute right-0 top-11 z-20 w-72 rounded-xl border border-border bg-card p-2 shadow-lg">
@@ -337,20 +399,20 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
           </div>
 
           <div ref={workspaceMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setWorkspaceMenuOpen((current) => !current)}
-              className="inline-flex items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-accent/50 rounded-md"
-            >
-              <FolderKanban className="size-4 text-muted-foreground" />
-              <div className="leading-tight">
+            <HeaderTooltipTrigger text="Selecione o Espaço de Trabalho">
+              <button
+                type="button"
+                onClick={() => setWorkspaceMenuOpen((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-accent/50"
+                aria-label="Selecione o Espaço de Trabalho"
+              >
+                <Boxes className="size-4 text-muted-foreground" />
                 <p className="max-w-[120px] truncate font-medium">
                   {selectedWorkspace?.name ?? "Sem workspace"}
                 </p>
-                <p className="text-muted-foreground">Workspace</p>
-              </div>
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </button>
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </button>
+            </HeaderTooltipTrigger>
 
             {workspaceMenuOpen ? (
               <div className="absolute right-0 top-11 z-20 w-72 rounded-xl border border-border bg-card p-2 shadow-lg">
@@ -358,23 +420,36 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
                   Workspaces
                 </p>
                 {availableWorkspaces.map((workspace) => (
-                  <button
-                    key={workspace.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedWorkspaceId(workspace.id)
-                      setWorkspaceMenuOpen(false)
-                    }}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left hover:bg-accent"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{workspace.name}</p>
-                      <p className="text-xs text-muted-foreground">Workspace</p>
-                    </div>
-                    {selectedWorkspace?.id === workspace.id && (
-                      <Check className="size-4 text-primary" />
-                    )}
-                  </button>
+                  <div key={workspace.id} className="group flex items-center gap-1 rounded-md hover:bg-accent">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedWorkspaceId(workspace.id)
+                        setWorkspaceMenuOpen(false)
+                      }}
+                      className="flex min-w-0 flex-1 items-center justify-between px-2 py-2 text-left"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{workspace.name}</p>
+                        <p className="text-xs text-muted-foreground">Workspace</p>
+                      </div>
+                      {selectedWorkspace?.id === workspace.id && (
+                        <Check className="size-4 shrink-0 text-primary" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push(`/workspaces/${workspace.id}`)
+                        setWorkspaceMenuOpen(false)
+                      }}
+                      className="mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                      title={`Editar workspace ${workspace.name}`}
+                      aria-label={`Editar workspace ${workspace.name}`}
+                    >
+                      <Edit2 className="size-3.5" />
+                    </button>
+                  </div>
                 ))}
                 <div className="mt-1 border-t border-border pt-1">
                   <button

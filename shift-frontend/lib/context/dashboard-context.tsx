@@ -6,6 +6,7 @@ import {
   createOrganization,
   createWorkspaceProject,
   createWorkspace,
+  updateProject,
   fetchMe,
   getSelectedOrganizationId,
   getSelectedProjectId,
@@ -53,6 +54,9 @@ interface DashboardContextType {
   createOrganizationAndSelect: (payload: { name: string; slug: string }) => Promise<OrganizationWithRole>
   createWorkspaceAndSelect: (payload: { organization_id: string; name: string; erp_id?: string | null }) => Promise<Workspace>
   createProjectAndSelect: (payload: { workspace_id: string } & CreateProjectPayload) => Promise<Project>
+  updateProjectAndRefresh: (
+    payload: { project_id: string; workspace_id: string } & CreateProjectPayload
+  ) => Promise<Project>
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined)
@@ -182,7 +186,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   async function createProjectAndSelect(payload: { workspace_id: string } & CreateProjectPayload) {
     const created = await createWorkspaceProject(payload.workspace_id, {
       name: payload.name,
-      competitor_id: payload.competitor_id,
+      player_id: payload.player_id,
       conglomerate_id: payload.conglomerate_id,
       start_date: payload.start_date,
       end_date: payload.end_date,
@@ -190,6 +194,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     })
     await loadProjectsForWorkspace(payload.workspace_id, created.id)
     return created
+  }
+
+  async function updateProjectAndRefresh(
+    payload: { project_id: string; workspace_id: string } & CreateProjectPayload
+  ) {
+    const updated = await updateProject(payload.project_id, {
+      name: payload.name,
+      player_id: payload.player_id,
+      conglomerate_id: payload.conglomerate_id,
+      start_date: payload.start_date,
+      end_date: payload.end_date,
+      description: payload.description ?? null,
+    })
+    await loadProjectsForWorkspace(payload.workspace_id, updated.id)
+    return updated
   }
 
   useEffect(() => {
@@ -259,6 +278,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         createOrganizationAndSelect,
         createWorkspaceAndSelect,
         createProjectAndSelect,
+        updateProjectAndRefresh,
       }}
     >
       {children}

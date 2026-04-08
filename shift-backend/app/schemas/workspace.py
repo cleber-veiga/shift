@@ -13,6 +13,10 @@ class WorkspaceCreate(BaseModel):
     erp_id: UUID | None = None
 
 
+class WorkspaceUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
 class WorkspaceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

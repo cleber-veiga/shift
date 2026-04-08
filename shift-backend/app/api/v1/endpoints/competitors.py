@@ -10,6 +10,7 @@ from app.api.deps import get_current_user, get_db
 from app.models.competitor import Competitor, CompetitorProduct
 from app.models.competitor_schema_catalog import CompetitorSchemaCatalog
 from app.models.data_source import DataSource, DataSourceType
+from app.models.extraction_template import ExtractionTemplate
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.project import Project
@@ -23,6 +24,11 @@ from app.schemas.competitor_schema_catalog import (
     CompetitorSchemaCatalogRead,
     CompetitorSchemaCatalogUpsert,
     SchemaTableRead,
+)
+from app.schemas.extraction_template import (
+    ExtractionTemplateCreate,
+    ExtractionTemplateRead,
+    ExtractionTemplateUpdate,
 )
 from app.services.schema_introspection import (
     introspect_schema_from_config,
@@ -226,6 +232,151 @@ async def delete_competitor(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Guests cannot delete competitors.")
 
     await db.delete(competitor)
+    await db.commit()
+
+
+@router.post(
+    "/competitors/{competitor_id}/extraction-templates",
+    response_model=ExtractionTemplateRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_extraction_template(
+    competitor_id: UUID,
+    payload: ExtractionTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExtractionTemplate:
+    competitor, membership = await get_competitor_with_membership(db, competitor_id, current_user.id)
+    if not can_manage_competitor_schema(membership):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+    if payload.competitor_id != competitor.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payload competitor_id must match route competitor_id.",
+        )
+
+    template = ExtractionTemplate(
+        competitor_id=competitor.id,
+        name=payload.name.strip(),
+        extraction_mode=payload.extraction_mode,
+        schema_selection_config=payload.schema_selection_config,
+        custom_sql_query=payload.custom_sql_query.strip() if payload.custom_sql_query else None,
+        default_batch_size=payload.default_batch_size,
+        created_by_id=current_user.id,
+    )
+    db.add(template)
+    await db.commit()
+    await db.refresh(template)
+    return template
+
+
+@router.get(
+    "/competitors/{competitor_id}/extraction-templates",
+    response_model=list[ExtractionTemplateRead],
+)
+async def list_extraction_templates(
+    competitor_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ExtractionTemplate]:
+    competitor, _ = await get_competitor_with_membership(db, competitor_id, current_user.id)
+    templates = await db.scalars(
+        select(ExtractionTemplate)
+        .where(ExtractionTemplate.competitor_id == competitor.id)
+        .order_by(ExtractionTemplate.updated_at.desc())
+    )
+    return list(templates)
+
+
+@router.get(
+    "/competitors/{competitor_id}/extraction-templates/{template_id}",
+    response_model=ExtractionTemplateRead,
+)
+async def get_extraction_template(
+    competitor_id: UUID,
+    template_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExtractionTemplate:
+    competitor, _ = await get_competitor_with_membership(db, competitor_id, current_user.id)
+    template = await db.scalar(
+        select(ExtractionTemplate).where(
+            ExtractionTemplate.id == template_id,
+            ExtractionTemplate.competitor_id == competitor.id,
+        )
+    )
+    if not template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extraction template not found.")
+    return template
+
+
+@router.put(
+    "/competitors/{competitor_id}/extraction-templates/{template_id}",
+    response_model=ExtractionTemplateRead,
+)
+async def update_extraction_template(
+    competitor_id: UUID,
+    template_id: UUID,
+    payload: ExtractionTemplateUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExtractionTemplate:
+    competitor, membership = await get_competitor_with_membership(db, competitor_id, current_user.id)
+    if not can_manage_competitor_schema(membership):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+
+    template = await db.scalar(
+        select(ExtractionTemplate).where(
+            ExtractionTemplate.id == template_id,
+            ExtractionTemplate.competitor_id == competitor.id,
+        )
+    )
+    if not template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extraction template not found.")
+
+    if payload.competitor_id is not None and payload.competitor_id != competitor.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payload competitor_id must match route competitor_id.",
+        )
+
+    if payload.name is not None:
+        template.name = payload.name.strip()
+    if payload.extraction_mode is not None:
+        template.extraction_mode = payload.extraction_mode
+    if payload.schema_selection_config is not None:
+        template.schema_selection_config = payload.schema_selection_config
+    if payload.custom_sql_query is not None:
+        template.custom_sql_query = payload.custom_sql_query.strip() if payload.custom_sql_query else None
+    if payload.default_batch_size is not None:
+        template.default_batch_size = payload.default_batch_size
+
+    await db.commit()
+    await db.refresh(template)
+    return template
+
+
+@router.delete("/competitors/{competitor_id}/extraction-templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_extraction_template(
+    competitor_id: UUID,
+    template_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    competitor, membership = await get_competitor_with_membership(db, competitor_id, current_user.id)
+    if not can_manage_competitor_schema(membership):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions.")
+
+    template = await db.scalar(
+        select(ExtractionTemplate).where(
+            ExtractionTemplate.id == template_id,
+            ExtractionTemplate.competitor_id == competitor.id,
+        )
+    )
+    if not template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extraction template not found.")
+
+    await db.delete(template)
     await db.commit()
 
 
