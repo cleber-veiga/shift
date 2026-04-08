@@ -119,7 +119,6 @@ function WorkflowCanvas() {
       : { x: window.innerWidth / 2, y: window.innerHeight / 2 }
     const position = screenToFlowPosition(center)
     addNode(subType, { x: position.x - 110, y: position.y - 40 })
-    setLibraryOpen(false)
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => fitView({ duration: 240, padding: 0.22 })))
   }
 
