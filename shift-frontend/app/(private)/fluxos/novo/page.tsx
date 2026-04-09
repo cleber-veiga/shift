@@ -99,6 +99,14 @@ import {
   type SqlDatabaseNodeConfig,
 } from "@/components/workflow/config-panels/action-config-panels"
 import {
+  DatabaseNodePanel,
+  type DatabaseNodeConfig,
+} from "@/components/workflow/database-node/database-node-panel"
+import {
+  listDatabaseConnections,
+  type DatabaseConnection,
+} from "@/lib/database-node"
+import {
   ErrorCatchNodeConfigPanel,
   IfNodeConfigPanel,
   LoopNodeConfigPanel,
@@ -147,6 +155,7 @@ type WorkflowNodeKind =
   | "eventQueueTrigger"
   | "httpRequestAction"
   | "sqlDatabaseAction"
+  | "advancedDatabaseAction"
   | "emailSenderAction"
   | "executeSubWorkflowAction"
   | "noSqlDatabaseAction"
@@ -177,6 +186,7 @@ type TriggerNodeKind =
 type ActionNodeKind =
   | "httpRequestAction"
   | "sqlDatabaseAction"
+  | "advancedDatabaseAction"
   | "emailSenderAction"
   | "executeSubWorkflowAction"
   | "noSqlDatabaseAction"
@@ -210,6 +220,7 @@ type TriggerNodeConfigByKind = {
 type ActionNodeConfigByKind = {
   httpRequestAction: HttpRequestNodeConfig
   sqlDatabaseAction: SqlDatabaseNodeConfig
+  advancedDatabaseAction: DatabaseNodeConfig
   emailSenderAction: EmailSenderNodeConfig
   executeSubWorkflowAction: ExecuteSubWorkflowNodeConfig
   noSqlDatabaseAction: NoSQLDatabaseNodeConfig
@@ -282,6 +293,7 @@ function isActionKind(kind: WorkflowNodeKind): kind is ActionNodeKind {
   return (
     kind === "httpRequestAction" ||
     kind === "sqlDatabaseAction" ||
+    kind === "advancedDatabaseAction" ||
     kind === "emailSenderAction" ||
     kind === "executeSubWorkflowAction" ||
     kind === "noSqlDatabaseAction"
@@ -394,6 +406,23 @@ function getDefaultActionConfig(kind: ActionNodeKind): ActionNodeConfigByKind[Ac
         pass_all_data: true,
         mapped_inputs: [],
       }
+    case "advancedDatabaseAction":
+      return {
+        binding: {
+          connection_id: null,
+          binding_key: "source_main",
+          requirement: "always_rebind",
+          allow_manual_entry: true,
+          allow_public_test_connections: true,
+          persist_credentials_in_workflow: false,
+        },
+        mode: "raw_sql",
+        sql: "SELECT * FROM sua_tabela LIMIT 100",
+        manual_select: null,
+        shell_mode: false,
+        enforce_rebind: true,
+        template_id: null,
+      } satisfies DatabaseNodeConfig
     case "noSqlDatabaseAction":
       return {
         credential_id: "cred-nosql-mongo",
@@ -559,6 +588,7 @@ const kindAccent: Record<WorkflowNodeKind, string> = {
   eventQueueTrigger: "#7e22ce",
   httpRequestAction: "#2563eb",
   sqlDatabaseAction: "#2563eb",
+  advancedDatabaseAction: "#2563eb",
   emailSenderAction: "#2563eb",
   executeSubWorkflowAction: "#2563eb",
   noSqlDatabaseAction: "#2563eb",
@@ -588,6 +618,7 @@ const kindIcon: Record<WorkflowNodeKind, React.ElementType> = {
   eventQueueTrigger: Rows3,
   httpRequestAction: Globe,
   sqlDatabaseAction: Database,
+  advancedDatabaseAction: Database,
   emailSenderAction: Mail,
   executeSubWorkflowAction: Workflow,
   noSqlDatabaseAction: Braces,
@@ -1566,6 +1597,14 @@ function StandardNode({ id, data }: NodeProps<Node<WorkflowNodeData>>) {
       ]
     }
 
+    if (data.kind === "advancedDatabaseAction") {
+      const config = (data.config ?? getDefaultActionConfig("advancedDatabaseAction")) as DatabaseNodeConfig
+      return [
+        { label: "Modo", value: config.mode },
+        { label: "Binding", value: config.binding?.connection_id ?? config.binding?.binding_key ?? "sem binding" },
+      ]
+    }
+
     if (data.kind === "noSqlDatabaseAction") {
       const config = (data.config ?? getDefaultActionConfig("noSqlDatabaseAction")) as NoSQLDatabaseNodeConfig
       return [
@@ -1766,6 +1805,7 @@ const nodeTypes: NodeTypes = {
   eventQueueTrigger: StandardNode,
   httpRequestAction: StandardNode,
   sqlDatabaseAction: StandardNode,
+  advancedDatabaseAction: StandardNode,
   emailSenderAction: StandardNode,
   executeSubWorkflowAction: StandardNode,
   noSqlDatabaseAction: StandardNode,
@@ -1917,6 +1957,7 @@ const exportedNodeTypeByKind: Record<WorkflowNodeKind, string> = {
   eventQueueTrigger: "event_queue",
   httpRequestAction: "http_request",
   sqlDatabaseAction: "sql_database",
+  advancedDatabaseAction: "advanced_database",
   emailSenderAction: "email_sender",
   executeSubWorkflowAction: "execute_sub_workflow",
   noSqlDatabaseAction: "nosql_database",
@@ -2071,6 +2112,16 @@ function normalizeNodeConfig(kind: WorkflowNodeKind, rawConfig: unknown): Record
         wait_for_response: Boolean(config.wait_for_response),
         pass_all_data: Boolean(config.pass_all_data),
         mapped_inputs: keyValueArrayToAnyRecord(config.mapped_inputs),
+      }
+    case "advancedDatabaseAction":
+      return {
+        binding: isRecord(config.binding) ? config.binding : {},
+        mode: typeof config.mode === "string" ? config.mode : "raw_sql",
+        sql: typeof config.sql === "string" && config.sql.trim() ? config.sql : null,
+        manual_select: isRecord(config.manual_select) ? config.manual_select : null,
+        shell_mode: Boolean(config.shell_mode),
+        enforce_rebind: Boolean(config.enforce_rebind),
+        template_id: typeof config.template_id === "string" && config.template_id.trim() ? config.template_id : null,
       }
     case "noSqlDatabaseAction":
       return {
@@ -2416,6 +2467,11 @@ const palette: PaletteGroup[] = [
         description: "Executa operacoes SQL em bancos relacionais.",
       },
       {
+        kind: "advancedDatabaseAction",
+        label: "Database Avançado",
+        description: "ETL com registry de conexões, bindings, guard rails e copiloto SQL.",
+      },
+      {
         kind: "emailSenderAction",
         label: "Email Sender",
         description: "Envia emails com conteudo dinamico.",
@@ -2602,6 +2658,7 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(fun
   const [flowNameDraft, setFlowNameDraft] = useState(flowName)
   const [isSaving, setIsSaving] = useState(false)
   const [saveNotification, setSaveNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [databaseConnections, setDatabaseConnections] = useState<DatabaseConnection[]>([])
   const hasSelectedWorkspace = Boolean(selectedWorkspaceName)
   const isWorkflowPlayersLoading = workflowPlayersLoading
   const currentWorkflowPlayersError = workflowPlayersError
@@ -2621,6 +2678,13 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(fun
     () => availableWorkflowPlayers.find((item) => item.id === workflowSettings.playerId) ?? null,
     [availableWorkflowPlayers, workflowSettings.playerId]
   )
+
+  useEffect(() => {
+    if (!workspaceId) return
+    listDatabaseConnections(workspaceId)
+      .then(setDatabaseConnections)
+      .catch(() => {})
+  }, [workspaceId])
 
   useEffect(() => {
     if (!workflowSettingsOpen) return
@@ -2869,6 +2933,7 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(fun
         eventQueueTrigger: "eventQueueTrigger",
         httpRequestAction: "httpRequestAction",
         sqlDatabaseAction: "sqlDatabaseAction",
+        advancedDatabaseAction: "advancedDatabaseAction",
         emailSenderAction: "emailSenderAction",
         executeSubWorkflowAction: "executeSubWorkflowAction",
         noSqlDatabaseAction: "noSqlDatabaseAction",
@@ -3482,6 +3547,18 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(fun
                       getDefaultActionConfig("executeSubWorkflowAction")) as ExecuteSubWorkflowNodeConfig
                   }
                   onUpdate={(next) => updateNodeConfig(configNode.id, next)}
+                />
+              ) : null}
+
+              {(configNode.data as WorkflowNodeData).kind === "advancedDatabaseAction" ? (
+                <DatabaseNodePanel
+                  workspaceId={workspaceId ?? ""}
+                  availableConnections={databaseConnections}
+                  value={
+                    (((configNode.data as WorkflowNodeData).config as DatabaseNodeConfig | undefined) ??
+                      getDefaultActionConfig("advancedDatabaseAction")) as DatabaseNodeConfig
+                  }
+                  onChange={(next) => updateNodeConfig(configNode.id, next)}
                 />
               ) : null}
 

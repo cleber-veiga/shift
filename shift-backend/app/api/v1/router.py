@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     conglomerates,
     contacts,
     data_sources,
+    database_node,
     erps,
     extractions,
     health,
@@ -36,3 +37,4 @@ api_router.include_router(contacts.router, tags=["contacts"])
 api_router.include_router(extractions.router, tags=["extractions"])
 api_router.include_router(workflows.router, tags=["workflows"])
 api_router.include_router(executions.router, tags=["executions"])
+api_router.include_router(database_node.router, tags=["database-node"])
