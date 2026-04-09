@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth"
 import { MorphLoader } from "@/components/ui/morph-loader"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface SchemaFetchModalProps {
   isOpen: boolean
@@ -174,50 +175,59 @@ export function SchemaFetchModal({
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Workspace</label>
-                <select
+                <Select
                   value={selectedWorkspaceId}
-                  onChange={(e) => {
-                    setSelectedWorkspaceId(e.target.value)
-                    loadProjects(e.target.value)
+                  onValueChange={(value) => {
+                    setSelectedWorkspaceId(value)
+                    loadProjects(value)
                   }}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
                 >
-                  <option value="">Selecione um workspace</option>
-                  {workspaces.map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workspaces.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Projeto</label>
-                <select
+                <Select
                   value={selectedProjectId}
-                  onChange={(e) => {
-                    setSelectedProjectId(e.target.value)
-                    loadDataSources(e.target.value)
+                  onValueChange={(value) => {
+                    setSelectedProjectId(value)
+                    loadDataSources(value)
                   }}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
                   disabled={!selectedWorkspaceId}
                 >
-                  <option value="">Selecione um projeto</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um projeto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase text-muted-foreground">Fonte de Dados</label>
-                <select
+                <Select
                   value={selectedDataSourceId}
-                  onChange={(e) => setSelectedDataSourceId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
+                  onValueChange={(value) => setSelectedDataSourceId(value)}
                   disabled={!selectedProjectId}
                 >
-                  <option value="">Selecione uma fonte de dados</option>
-                  {dataSources.map((ds) => (
-                    <option key={ds.id} value={ds.id}>{ds.name} ({ds.source_type})</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma fonte de dados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dataSources.map((ds) => (
+                      <SelectItem key={ds.id} value={ds.id}>{ds.name} ({ds.source_type})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           ) : (
@@ -225,18 +235,22 @@ export function SchemaFetchModal({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase text-muted-foreground">Banco</label>
-                  <select
+                  <Select
                     value={manualDatabaseType}
-                    onChange={(e) => setManualDatabaseType(e.target.value as DataSourceType)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
+                    onValueChange={(value) => setManualDatabaseType(value as DataSourceType)}
                   >
-                    <option value="POSTGRESQL">PostgreSQL</option>
-                    <option value="MYSQL">MySQL</option>
-                    <option value="SQLSERVER">SQL Server</option>
-                    <option value="ORACLE">Oracle</option>
-                    <option value="FIREBIRD">Firebird</option>
-                    <option value="SQLITE">SQLite</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="POSTGRESQL">PostgreSQL</SelectItem>
+                      <SelectItem value="MYSQL">MySQL</SelectItem>
+                      <SelectItem value="SQLSERVER">SQL Server</SelectItem>
+                      <SelectItem value="ORACLE">Oracle</SelectItem>
+                      <SelectItem value="FIREBIRD">Firebird</SelectItem>
+                      <SelectItem value="SQLITE">SQLite</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase text-muted-foreground">Porta</label>

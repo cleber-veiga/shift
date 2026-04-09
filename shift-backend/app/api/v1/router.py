@@ -15,6 +15,8 @@ from app.api.v1.endpoints import (
     workspace_players,
     workspaces,
     workspace_schema_catalogs,
+    workflows,
+    executions,
 )
 
 api_router = APIRouter()
@@ -32,3 +34,5 @@ api_router.include_router(competitors.router, tags=["competitors"])
 api_router.include_router(conglomerates.router, tags=["conglomerates"])
 api_router.include_router(contacts.router, tags=["contacts"])
 api_router.include_router(extractions.router, tags=["extractions"])
+api_router.include_router(workflows.router, tags=["workflows"])
+api_router.include_router(executions.router, tags=["executions"])

@@ -21,6 +21,7 @@ import { ExtractionTemplateModal } from "@/components/concorrentes/extraction-te
 import { SchemaFetchModal } from "@/components/concorrentes/schema-fetch-modal"
 import { SchemaTreeView } from "@/components/concorrentes/schema-tree-view"
 import { MorphLoader } from "@/components/ui/morph-loader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -410,10 +411,10 @@ export default function CompetitorFormPage({ params }: PageProps) {
                       Tipo de Banco de Dados
                     </label>
                     {activeTab ? (
-                      <select
+                      <Select
                         value={productConfigs[activeTab]?.db_type ?? "POSTGRESQL"}
-                        onChange={(event) => {
-                          const newType = event.target.value as DataSourceType
+                        onValueChange={(value) => {
+                          const newType = value as DataSourceType
                           setProductConfigs((prev) => ({
                             ...prev,
                             [activeTab]: {
@@ -422,14 +423,18 @@ export default function CompetitorFormPage({ params }: PageProps) {
                             },
                           }))
                         }}
-                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20 transition-all"
                       >
-                        {DATABASE_TYPES.map((type) => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DATABASE_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : (
                       <div className="h-9 w-full rounded-md border border-border bg-muted/20 px-3 text-xs flex items-center text-muted-foreground">
                         Cadastre ERPs para configurar produtos.

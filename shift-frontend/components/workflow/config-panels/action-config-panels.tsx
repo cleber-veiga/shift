@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type PanelProps<T> = {
   nodeData: T
@@ -312,31 +313,32 @@ export function HttpRequestNodeConfigPanel({ nodeData, onUpdate }: PanelProps<Ht
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className={fieldLabelClass}>Metodo</label>
-          <select
-            className={fieldClass}
-            value={form.method}
-            onChange={(e) => setForm((prev) => ({ ...prev, method: e.target.value as HttpMethod }))}
-          >
-            <option>GET</option>
-            <option>POST</option>
-            <option>PUT</option>
-            <option>DELETE</option>
-            <option>PATCH</option>
-          </select>
+          <Select value={form.method} onValueChange={(value) => setForm((prev) => ({ ...prev, method: value as HttpMethod }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GET">GET</SelectItem>
+              <SelectItem value="POST">POST</SelectItem>
+              <SelectItem value="PUT">PUT</SelectItem>
+              <SelectItem value="DELETE">DELETE</SelectItem>
+              <SelectItem value="PATCH">PATCH</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Credencial</label>
-          <select
-            className={fieldClass}
-            value={form.credential_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
-          >
-            <option value="">Selecionar...</option>
-            {credentialOptions.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
+          <Select value={form.credential_id} onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecionar..." />
+            </SelectTrigger>
+            <SelectContent>
+              {credentialOptions.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -432,31 +434,32 @@ export function SqlDatabaseNodeConfigPanel({ nodeData, onUpdate }: PanelProps<Sq
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>Credencial</label>
-          <select
-            className={fieldClass}
-            value={form.credential_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
-          >
-            <option value="">Selecionar...</option>
-            {credentialOptions.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
+          <Select value={form.credential_id} onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecionar..." />
+            </SelectTrigger>
+            <SelectContent>
+              {credentialOptions.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Operacao</label>
-          <select
-            className={fieldClass}
-            value={form.operation}
-            onChange={(e) => setForm((prev) => ({ ...prev, operation: e.target.value as SqlOperation }))}
-          >
-            <option value="SELECT">SELECT</option>
-            <option value="INSERT">INSERT</option>
-            <option value="UPDATE">UPDATE</option>
-            <option value="DELETE">DELETE</option>
-            <option value="CUSTOM">CUSTOM</option>
-          </select>
+          <Select value={form.operation} onValueChange={(value) => setForm((prev) => ({ ...prev, operation: value as SqlOperation }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="SELECT">SELECT</SelectItem>
+              <SelectItem value="INSERT">INSERT</SelectItem>
+              <SelectItem value="UPDATE">UPDATE</SelectItem>
+              <SelectItem value="DELETE">DELETE</SelectItem>
+              <SelectItem value="CUSTOM">CUSTOM</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -524,16 +527,16 @@ export function EmailSenderNodeConfigPanel({ nodeData, onUpdate }: PanelProps<Em
     >
       <div>
         <label className={fieldLabelClass}>Credencial</label>
-        <select
-          className={fieldClass}
-          value={form.credential_id}
-          onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
-        >
-          <option value="">Selecionar...</option>
-          {credentialOptions.map((item) => (
-            <option key={item.id} value={item.id}>{item.label}</option>
-          ))}
-        </select>
+        <Select value={form.credential_id} onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecionar..." />
+          </SelectTrigger>
+          <SelectContent>
+            {credentialOptions.map((item) => (
+              <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -652,16 +655,16 @@ export function ExecuteSubWorkflowNodeConfigPanel({ nodeData, onUpdate }: PanelP
     >
       <div>
         <label className={fieldLabelClass}>Workflow</label>
-        <select
-          className={fieldClass}
-          value={form.workflow_id}
-          onChange={(e) => setForm((prev) => ({ ...prev, workflow_id: e.target.value }))}
-        >
-          <option value="">Selecionar...</option>
-          {workflowOptions.map((item) => (
-            <option key={item.id} value={item.id}>{item.label}</option>
-          ))}
-        </select>
+        <Select value={form.workflow_id} onValueChange={(value) => setForm((prev) => ({ ...prev, workflow_id: value }))}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecionar..." />
+          </SelectTrigger>
+          <SelectContent>
+            {workflowOptions.map((item) => (
+              <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -730,47 +733,49 @@ export function NoSQLDatabaseNodeConfigPanel({ nodeData, onUpdate }: PanelProps<
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>Credencial</label>
-          <select
-            className={fieldClass}
-            value={form.credential_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
-          >
-            <option value="">Selecionar...</option>
-            {credentialOptions.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
+          <Select value={form.credential_id} onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecionar..." />
+            </SelectTrigger>
+            <SelectContent>
+              {credentialOptions.map((item) => (
+                <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Database Type</label>
-          <select
-            className={fieldClass}
-            value={form.database_type}
-            onChange={(e) => setForm((prev) => ({ ...prev, database_type: e.target.value as NoSqlDatabaseType }))}
-          >
-            <option value="mongodb">mongodb</option>
-            <option value="dynamodb">dynamodb</option>
-            <option value="firestore">firestore</option>
-            <option value="redis">redis</option>
-          </select>
+          <Select value={form.database_type} onValueChange={(value) => setForm((prev) => ({ ...prev, database_type: value as NoSqlDatabaseType }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mongodb">mongodb</SelectItem>
+              <SelectItem value="dynamodb">dynamodb</SelectItem>
+              <SelectItem value="firestore">firestore</SelectItem>
+              <SelectItem value="redis">redis</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className={fieldLabelClass}>Operacao</label>
-          <select
-            className={fieldClass}
-            value={form.operation}
-            onChange={(e) => setForm((prev) => ({ ...prev, operation: e.target.value as NoSqlOperation }))}
-          >
-            <option value="find">find</option>
-            <option value="insert">insert</option>
-            <option value="update">update</option>
-            <option value="delete">delete</option>
-            <option value="upsert">upsert</option>
-          </select>
+          <Select value={form.operation} onValueChange={(value) => setForm((prev) => ({ ...prev, operation: value as NoSqlOperation }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="find">find</SelectItem>
+              <SelectItem value="insert">insert</SelectItem>
+              <SelectItem value="update">update</SelectItem>
+              <SelectItem value="delete">delete</SelectItem>
+              <SelectItem value="upsert">upsert</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>

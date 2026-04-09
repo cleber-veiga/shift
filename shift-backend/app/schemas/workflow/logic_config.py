@@ -1,131 +1,48 @@
+from typing import Any, Optional
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from app.schemas.workflow.enum import Operator, MergeMode, CombineStrategy
+from .enum import LogicKind, ConditionOperator
 
+class ConditionRule(BaseModel):
+    field: str = Field(..., description="Caminho do campo no contexto. Ex: data.status")
+    operator: ConditionOperator
+    value: Any = Field(None, description="Valor de comparação (não necessário para is_empty/is_not_empty)")
 
+class ConditionGroup(BaseModel):
+    operator: str = Field("AND", pattern="^(AND|OR)$")
+    rules: list[ConditionRule] = Field(..., min_length=1)
 
-class Condition(BaseModel):
-    """Uma regra individual de comparação."""
-    left_operand: str = Field(..., description="A variável a ser avaliada (ex: '{{cliente.status}}')")
-    operator: Operator = Field(default=Operator.EQUALS, description="Operador lógico")
-    right_operand: Optional[str] = Field(None, description="O valor esperado (ex: 'pago'). Nulo se o operador for 'is_empty'")
+class IfConfig(BaseModel):
+    kind: LogicKind = LogicKind.IF
+    condition: ConditionGroup = Field(..., description="Grupo de condições que determina o caminho True ou False")
 
-class IfNodeConfig(BaseModel):
-    """Configuração para o nó Condicional (If/Else)."""
-    
-    combine_mode: str = Field(
-        default="AND", 
-        description="Como avaliar múltiplas regras: 'AND' (todas devem ser verdadeiras) ou 'OR' (apenas uma basta)"
-    )
-    conditions: List[Condition] = Field(..., description="Lista de regras a serem avaliadas")
+class SwitchCase(BaseModel):
+    label: str = Field(..., description="Rótulo da saída (ex: 'ativo', 'inativo')")
+    handle: str = Field(..., description="Handle de saída único para esta rota")
+    condition: ConditionGroup
 
-class SwitchRoute(BaseModel):
-    """Uma rota de saída específica do Switch."""
-    route_name: str = Field(..., description="Nome da porta de saída na UI (ex: 'Boleto', 'Cartão')")
-    operator: Operator = Field(default=Operator.EQUALS, description="Operador lógico")
-    compare_value: str = Field(..., description="Valor que ativa esta rota (ex: 'credit_card')")
+class SwitchConfig(BaseModel):
+    kind: LogicKind = LogicKind.SWITCH
+    cases: list[SwitchCase] = Field(..., min_length=1, description="Lista de casos avaliados em ordem")
+    default_handle: str = Field("default", description="Handle de saída quando nenhum caso for satisfeito")
 
-class SwitchNodeConfig(BaseModel):
-    """Configuração para o nó de Múltiplas Escolhas (Router)."""
-    
-    input_value: str = Field(
-        ..., 
-        description="A variável base que será testada contra todas as rotas (ex: '{{pagamento.metodo}}')"
-    )
-    routes: List[SwitchRoute] = Field(
-        ..., 
-        description="Lista de caminhos possíveis"
-    )
-    enable_fallback: bool = Field(
-        default=True, 
-        description="Se habilitado, cria uma porta de saída 'Default' para os casos em que nenhuma rota combinar"
-    )
+class LoopConfig(BaseModel):
+    kind: LogicKind = LogicKind.LOOP
+    items_path: str = Field(..., description="Caminho para o array no contexto. Ex: data.rows")
+    item_variable: str = Field("item", description="Nome da variável que representa cada item dentro do loop")
+    batch_size: int = Field(1, ge=1, le=1000, description="Quantos itens processar por iteração")
 
-class LoopNodeConfig(BaseModel):
-    """Configuração para o nó Iterador (For-Each)."""
-    
-    source_array: str = Field(
-        ..., 
-        description="O caminho onde a lista está no JSON atual (ex: '{{response.data.clientes}}')"
-    )
-    batch_size: int = Field(
-        default=1, 
-        description="Quantos itens o loop libera por vez. 1 para sequencial, >1 para processamento em lotes."
-    )
-    exit_on_error: bool = Field(
-        default=False, 
-        description="Se True, o loop inteiro é cancelado se um item falhar. Se False, ele pula o item com erro e continua."
-    )
+class MergeConfig(BaseModel):
+    kind: LogicKind = LogicKind.MERGE
+    mode: str = Field("wait_all", pattern="^(wait_all|first_wins)$", description="'wait_all' aguarda todos os ramos; 'first_wins' usa o primeiro que chegar")
+    merge_key: Optional[str] = Field(None, description="Chave para fazer join dos resultados quando mode=wait_all")
 
+class ErrorCatchConfig(BaseModel):
+    kind: LogicKind = LogicKind.ERROR_CATCH
+    catch_node_ids: list[str] = Field(default_factory=list, description="IDs dos nós monitorados. Vazio = monitora todos os nós anteriores.")
+    error_output_field: str = Field("error", description="Campo no contexto onde o erro será armazenado")
 
-class MergeNodeConfig(BaseModel):
-    """Configuração para o nó Agrupador (Merge / Wait)."""
-    
-    mode: MergeMode = Field(default=MergeMode.WAIT_ALL, description="Modo de espera das execuções")
-    data_strategy: CombineStrategy = Field(
-        default=CombineStrategy.MERGE_BY_KEY, 
-        description="Como combinar o payload resultante"
-    )
-
-class ErrorCatchNodeConfig(BaseModel):
-    """Configuração para interceptar e tratar erros de nós anteriores."""
-    
-    catch_all: bool = Field(
-        default=False, 
-        description="Se True, captura QUALQUER erro. Se False, apenas os tipos especificados."
-    )
-    
-    error_types: Optional[List[str]] = Field(
-        default=None, 
-        description="Tipos específicos de erro a capturar (ex: ['timeout', 'auth_failed', 'not_found'])"
-    )
-    
-    # Comportamento
-    retry_enabled: bool = Field(
-        default=False, 
-        description="Se True, tenta executar o nó anterior novamente"
-    )
-    retry_count: int = Field(
-        default=3, 
-        description="Quantas vezes tentar novamente"
-    )
-    retry_delay_seconds: int = Field(
-        default=5, 
-        description="Tempo de espera entre tentativas (em segundos)"
-    )
-    
-    # Injeção de contexto
-    error_property: str = Field(
-        default="error_info", 
-        description="Onde injetar detalhes do erro no payload (ex: error_info.message, error_info.code)"
-    )
-
-class WaitNodeConfig(BaseModel):
-    """Configuração para pausar o fluxo por um tempo determinado."""
-    
-    wait_type: str = Field(
-        ..., 
-        description="Tipo de espera (fixed_duration, until_time, until_condition)"
-    )
-    
-    # Para fixed_duration
-    duration_seconds: Optional[int] = Field(
-        default=None, 
-        description="Quantos segundos esperar (ex: 300 para 5 minutos)"
-    )
-    
-    # Para until_time
-    target_time: Optional[str] = Field(
-        default=None, 
-        description="Hora específica (ex: '2024-12-25 18:00:00' ou '{{webhook.scheduled_time}}')"
-    )
-    
-    # Para until_condition
-    condition_expression: Optional[str] = Field(
-        default=None, 
-        description="Expressão que, quando verdadeira, libera o fluxo (ex: '{{status}} == completed')"
-    )
-    condition_check_interval: int = Field(
-        default=10, 
-        description="A cada quantos segundos verificar a condição"
-    )
+class WaitConfig(BaseModel):
+    kind: LogicKind = LogicKind.WAIT
+    seconds: Optional[int] = Field(None, ge=1, le=86400, description="Aguardar N segundos fixos")
+    until_expression: Optional[str] = Field(None, description="Expressão Python que retorna um datetime. Ex: datetime.now() + timedelta(hours=1)")
+    webhook_resume: bool = Field(False, description="Se verdadeiro, aguarda um webhook externo para retomar a execução")

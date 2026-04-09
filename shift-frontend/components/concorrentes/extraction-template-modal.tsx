@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Braces, Plus, X } from "lucide-react"
 import { MorphLoader } from "@/components/ui/morph-loader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   createCompetitorExtractionTemplate,
   type CompetitorExtractionTemplate,
@@ -122,19 +123,23 @@ export function ExtractionTemplateModal({ open, competitorId, onClose, onCreated
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-muted-foreground">Modo de Extracao</label>
-              <select
+              <Select
                 value={form.extraction_mode}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setForm((current) => ({
                     ...current,
-                    extraction_mode: event.target.value as ExtractionMode,
+                    extraction_mode: value as ExtractionMode,
                   }))
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
               >
-                <option value="SCHEMA_SELECTION">Selecao de Schema</option>
-                <option value="CUSTOM_SQL">SQL Customizado</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SCHEMA_SELECTION">Selecao de Schema</SelectItem>
+                  <SelectItem value="CUSTOM_SQL">SQL Customizado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1">

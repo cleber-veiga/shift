@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿"use client"
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿"use client"
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { useDashboard } from "@/lib/context/dashboard-context"
 import { MorphLoader } from "@/components/ui/morph-loader"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type ConglomerateStatusFilter = "all" | "active" | "inactive"
 
@@ -142,15 +143,19 @@ export default function ConglomeradosPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={conglomerateStatusFilter}
-            onChange={(e) => setConglomerateStatusFilter(e.target.value as ConglomerateStatusFilter)}
-            className="h-7 rounded-md border border-border bg-background/50 px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary/20 transition-all text-muted-foreground"
+            onValueChange={(value) => setConglomerateStatusFilter(value as ConglomerateStatusFilter)}
           >
-            <option value="all">Todos os Status</option>
-            <option value="active">Ativos</option>
-            <option value="inactive">Inativos</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Todos os Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Status</SelectItem>
+              <SelectItem value="active">Ativos</SelectItem>
+              <SelectItem value="inactive">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
             <input

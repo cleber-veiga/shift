@@ -28,6 +28,7 @@ import {
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type MenuItem = {
   label: string
@@ -482,36 +483,44 @@ export function Sidebar() {
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-foreground">
                     Conglomerado
                   </label>
-                  <select
+                  <Select
                     value={projectConglomerateId}
-                    onChange={(event) => setProjectConglomerateId(event.target.value)}
-                    className="h-9 w-full rounded-xl border border-input bg-background/70 px-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+                    onValueChange={(value) => setProjectConglomerateId(value)}
                     required
                   >
-                    {availableConglomerates.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableConglomerates.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-foreground">
                     Concorrente
                   </label>
-                  <select
+                  <Select
                     value={projectCompetitorId}
-                    onChange={(event) => setProjectCompetitorId(event.target.value)}
-                    className="h-9 w-full rounded-xl border border-input bg-background/70 px-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+                    onValueChange={(value) => setProjectCompetitorId(value)}
                     required
                   >
-                    {availableCompetitors.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCompetitors.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

@@ -20,6 +20,7 @@ import {
 } from "@/lib/auth"
 import { Database, FileSpreadsheet, FileText, Plus, Search, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const DATA_SOURCE_TYPE_OPTIONS: Array<{ value: DataSourceType; label: string }> = [
   { value: "POSTGRESQL", label: "PostgreSQL" },
@@ -675,22 +676,26 @@ export default function DataSourcesPage() {
 
                     <label className="space-y-1">
                       <span className="text-[11px] font-medium text-muted-foreground">Tipo *</span>
-                      <select
+                      <Select
                         value={form.source_type}
-                        onChange={(event) =>
+                        onValueChange={(value) =>
                           setForm((current) => ({
                             ...current,
-                            source_type: event.target.value as DataSourceType,
+                            source_type: value as DataSourceType,
                           }))
                         }
-                        className="h-7 w-full rounded-md border border-border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary/20"
                       >
-                        {DATA_SOURCE_TYPE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DATA_SOURCE_TYPE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </label>
                   </div>
 

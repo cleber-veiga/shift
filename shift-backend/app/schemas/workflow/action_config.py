@@ -1,119 +1,131 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
-from app.schemas.workflow.enum import HttpMethod, SqlOperation
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.models.data_source import DataSourceType
+from app.schemas.data_source import DataSourceCreate, DatabaseConnectionInput
+
+from .enum import ActionKind, HttpMethod, SqlOperation
 
 
-
-class HttpRequestNodeConfig(BaseModel):
-    """Configuração para disparar chamadas HTTP para o mundo externo."""
-    
-    url: str = Field(..., description="URL de destino (suporta variáveis de fluxo, ex: https://api.site.com/{{user_id}})")
-    method: HttpMethod = Field(default=HttpMethod.GET, description="O método da requisição")
-    
-    # Autenticação (Referência a um cofre de chaves)
-    credential_id: Optional[str] = Field(
-        default=None, 
-        description="ID da credencial (Bearer Token, Basic Auth) no cofre de segurança"
-    )
-    
-    # Payload e Configurações
-    headers: Optional[Dict[str, str]] = Field(default=None, description="Cabeçalhos customizados")
-    query_params: Optional[Dict[str, str]] = Field(default=None, description="Parâmetros de URL (?key=value)")
-    body: Optional[Dict[str, Any]] = Field(default=None, description="O corpo da requisição (geralmente JSON)")
-    
-    # Resiliência
-    timeout: int = Field(default=30, description="Tempo máximo em segundos antes de falhar por timeout")
-    ignore_ssl_errors: bool = Field(default=False, description="Ignorar erros de certificado (útil para dev/locais)")
+class HttpHeader(BaseModel):
+    key: str
+    value: str
 
 
-class SqlDatabaseNodeConfig(BaseModel):
-    """Configuração para interagir com bancos de dados relacionais."""
-    
-    credential_id: str = Field(..., description="ID da credencial (contém Host, User, Pass, DB)")
-    operation: SqlOperation = Field(default=SqlOperation.SELECT, description="Tipo de operação padrão")
-    
-    query: str = Field(..., description="A query SQL a ser executada")
-    parameters: Optional[Dict[str, Any]] = Field(
-        default=None, 
-        description="Parâmetros seguros para a query (Bind Variables), ex: {'id': 10}"
-    )
+class HttpRequestConfig(BaseModel):
+    kind: ActionKind = ActionKind.HTTP_REQUEST
+    url: str = Field(..., description="URL de destino. Suporta templates: {{variavel}}")
+    method: HttpMethod = Field(HttpMethod.GET)
+    headers: list[HttpHeader] = Field(default_factory=list)
+    body: Any | None = Field(None, description="Corpo da requisicao. Suporta templates.")
+    timeout_seconds: int = Field(30, ge=1, le=300)
+    retry_count: int = Field(0, ge=0, le=5)
+    output_field: str = Field("response", description="Campo do contexto para armazenar a resposta")
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://", "{{")):
+            raise ValueError("URL deve comecar com http://, https:// ou ser uma variavel de template")
+        return value
 
 
-class EmailSenderNodeConfig(BaseModel):
-    """Configuração para disparo de e-mails via SMTP ou APIs padrão."""
-    
-    credential_id: str = Field(..., description="ID da credencial (SMTP, AWS SES, SendGrid, etc.)")
-    
-    to_address: str = Field(..., description="Destinatário(s) - separados por vírgula")
-    cc_address: Optional[str] = Field(default=None, description="Com cópia")
-    bcc_address: Optional[str] = Field(default=None, description="Com cópia oculta")
-    
-    subject: str = Field(..., description="Assunto do e-mail")
-    body_text: Optional[str] = Field(default=None, description="Corpo do e-mail em texto plano (Fallback)")
-    body_html: Optional[str] = Field(default=None, description="Corpo do e-mail rico em HTML")
-    
-    # Arquivos anexos gerados nos passos anteriores
-    attachments_keys: Optional[list[str]] = Field(
-        default=None, 
-        description="Chaves do payload atual que contêm arquivos binários para anexar"
-    )
+class SqlColumnMapping(BaseModel):
+    source: str = Field(..., description="Campo de origem no contexto")
+    target: str = Field(..., description="Coluna de destino na tabela")
 
 
-class ExecuteSubWorkflowNodeConfig(BaseModel):
-    """Configuração para acionar um fluxo filho a partir do fluxo atual."""
-    
-    workflow_id: str = Field(..., description="ID do fluxo filho que será executado")
-    
-    # Comportamento de Orquestração
-    wait_for_response: bool = Field(
-        default=True, 
-        description="Se True, este nó pausa e espera o fluxo filho acabar para pegar o resultado. Se False, dispara e segue (Fire-and-Forget)."
+class SqlDatabaseConfig(BaseModel):
+    kind: ActionKind = ActionKind.SQL_DATABASE
+    operation: SqlOperation = Field(SqlOperation.SELECT)
+    query: str | None = Field(
+        None,
+        description="SQL a executar. Suporta templates no formato {{variavel}}",
     )
-    
-    # Passagem de Dados
-    pass_all_data: bool = Field(
-        default=True, 
-        description="Se True, passa todo o JSON atual para o filho. Se False, passa apenas os inputs mapeados abaixo."
+    data_source_id: UUID | None = Field(
+        None,
+        description="Fonte de dados persistida a ser usada na execucao.",
     )
-    mapped_inputs: Optional[Dict[str, Any]] = Field(
-        default=None, 
-        description="Dados específicos enviados ao fluxo filho, ex: {'cliente_id': '{{cliente.id}}'}"
+    source_type: DataSourceType | None = Field(
+        None,
+        description="Tipo do banco quando a conexao for inline no proprio no.",
+    )
+    database: DatabaseConnectionInput | None = Field(
+        None,
+        description="Configuracao de conexao inline para execucao SQL.",
+    )
+    max_rows: int = Field(1000, ge=1, le=50000, description="Limite maximo de linhas retornadas")
+    timeout_seconds: int = Field(30, ge=1, le=300, description="Reservado para drivers que suportem timeout explicito")
+    output_field: str = Field("query_result", description="Campo do contexto para armazenar o resultado")
+    include_metadata: bool = Field(
+        True,
+        description="Se verdadeiro, salva colunas, rowcount, truncation e latency junto das linhas.",
+    )
+    fail_on_error: bool = Field(
+        True,
+        description="Se verdadeiro, falhas da consulta interrompem o workflow.",
     )
 
+    @model_validator(mode="after")
+    def validate_input(self) -> "SqlDatabaseConfig":
+        if self.operation not in {SqlOperation.SELECT, SqlOperation.EXECUTE}:
+            raise ValueError(
+                "O no SQL inicial suporta apenas as operacoes SELECT e EXECUTE."
+            )
 
-class NoSQLDatabaseNodeConfig(BaseModel):
-    """Configuração para interagir com bancos NoSQL (MongoDB, DynamoDB, Firestore)."""
-    
-    credential_id: str = Field(..., description="ID da credencial no cofre")
-    database_type: str = Field(
-        ..., 
-        description="Tipo de banco (mongodb, dynamodb, firestore, redis)"
+        if not self.query or not self.query.strip():
+            raise ValueError("query e obrigatoria para o no SQL.")
+
+        has_inline_connection = self.source_type is not None or self.database is not None
+        has_data_source = self.data_source_id is not None
+
+        if has_data_source and has_inline_connection:
+            raise ValueError("Informe data_source_id ou source_type/database, nao ambos.")
+        if not has_data_source and not has_inline_connection:
+            raise ValueError("Informe data_source_id ou source_type/database para o no SQL.")
+        if has_inline_connection and (self.source_type is None or self.database is None):
+            raise ValueError("source_type e database sao obrigatorios quando a conexao e inline.")
+        if has_inline_connection and self.source_type is not None and self.database is not None:
+            DataSourceCreate(
+                name="workflow_sql_node",
+                source_type=self.source_type,
+                database=self.database,
+                file=None,
+                is_active=True,
+            )
+
+        return self
+
+
+class EmailSenderConfig(BaseModel):
+    kind: ActionKind = ActionKind.EMAIL_SENDER
+    smtp_connection_id: str = Field(..., description="ID da conexao SMTP cadastrada")
+    to: list[str] = Field(..., min_length=1, description="Lista de destinatarios. Suporta templates.")
+    cc: list[str] = Field(default_factory=list)
+    bcc: list[str] = Field(default_factory=list)
+    subject: str = Field(..., description="Assunto do e-mail. Suporta templates.")
+    body: str = Field(..., description="Corpo do e-mail (HTML). Suporta templates.")
+    attachments: list[str] = Field(default_factory=list, description="Caminhos de arquivos para anexar")
+
+
+class ExecuteSubWorkflowConfig(BaseModel):
+    kind: ActionKind = ActionKind.EXECUTE_SUB_WORKFLOW
+    workflow_id: str = Field(..., description="ID do workflow filho a ser executado")
+    input_data: dict[str, Any] | None = Field(
+        None,
+        description="Dados de entrada para o sub-workflow. Suporta templates.",
     )
-    
-    operation: str = Field(
-        ..., 
-        description="Operação (find, insert, update, delete, upsert)"
-    )
-    
-    collection_name: str = Field(..., description="Nome da coleção/tabela")
-    
-    # Para operações de busca
-    query: Optional[Dict[str, Any]] = Field(
-        default=None, 
-        description="Filtro de busca (ex: {'status': 'active'})"
-    )
-    
-    # Para operações de escrita
-    document: Optional[Dict[str, Any]] = Field(
-        default=None, 
-        description="Documento a ser inserido/atualizado"
-    )
-    
-    # Para upsert
-    upsert_key: Optional[str] = Field(
-        default=None, 
-        description="Campo único para identificar se deve atualizar ou inserir"
-    )
-    
-    # Resiliência
-    timeout: int = Field(default=30, ge=1, le=300)
+    wait_for_completion: bool = Field(True, description="Se falso, dispara e nao aguarda o resultado")
+    output_field: str = Field("sub_result", description="Campo no contexto para o resultado do sub-workflow")
+
+
+class NoSQLDatabaseConfig(BaseModel):
+    kind: ActionKind = ActionKind.NOSQL_DATABASE
+    connection_id: str = Field(..., description="ID da conexao NoSQL cadastrada")
+    collection: str = Field(..., description="Nome da colecao/tabela")
+    operation: str = Field("find", description="Operacao: find, insert_one, insert_many, update_one, delete_one")
+    filter: dict[str, Any] | None = Field(None, description="Filtro da operacao. Suporta templates.")
+    document: Any | None = Field(None, description="Documento para insert/update. Suporta templates.")
+    output_field: str = Field("result", description="Campo no contexto para o resultado")

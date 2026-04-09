@@ -1,76 +1,41 @@
+from typing import Any, Optional
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from enum import Enum
-from app.schemas.workflow.enum import DataType, DataFormat, SupportedLanguage
+from .enum import TransformationKind, SupportedLanguage, FileFormat
 
+class FieldMapping(BaseModel):
+    source: str = Field(..., description="Caminho do campo de origem. Ex: data.nome_cliente")
+    target: str = Field(..., description="Nome do campo de destino")
+    transform: Optional[str] = Field(None, description="Expressão Python para transformar o valor. Ex: value.strip().upper()")
+    default: Optional[Any] = Field(None, description="Valor padrão se o campo de origem não existir")
 
+class MapperConfig(BaseModel):
+    kind: TransformationKind = TransformationKind.MAPPER
+    mappings: list[FieldMapping] = Field(..., min_length=1)
+    drop_unmapped: bool = Field(True, description="Se verdadeiro, remove campos não mapeados do resultado")
+    output_field: str = Field("mapped", description="Campo no contexto para o resultado")
 
-class MappingAssignment(BaseModel):
-    """Uma regra individual de mapeamento."""
-    target_field: str = Field(..., description="A chave que será criada/atualizada (ex: 'cliente.nome_completo')")
-    source_value: str = Field(..., description="O valor ou expressão que vai popular a chave (ex: '{{nome}} {{sobrenome}}')")
-    type: DataType = Field(default=DataType.STRING, description="Força a conversão de tipo (cast) durante o mapeamento")
+class CodeConfig(BaseModel):
+    kind: TransformationKind = TransformationKind.CODE
+    language: SupportedLanguage = Field(SupportedLanguage.PYTHON)
+    code: str = Field(..., description="Código a ser executado. Deve retornar um valor via 'return'. Tem acesso à variável 'data' com o contexto.")
+    output_field: str = Field("result", description="Campo no contexto para o valor retornado pelo código")
+    timeout_seconds: int = Field(30, ge=1, le=300)
 
-class MapperNodeConfig(BaseModel):
-    """Configuração para o nó de Mapeamento (Set/Mutate)."""
-    
-    keep_only_set_fields: bool = Field(
-        default=False, 
-        description="Se True, apaga todo o JSON anterior e passa para a frente APENAS os campos definidos no assignments."
-    )
-    assignments: List[MappingAssignment] = Field(..., description="Lista de chaves a serem criadas ou modificadas")
+class DateTimeConfig(BaseModel):
+    kind: TransformationKind = TransformationKind.DATETIME
+    operation: str = Field(..., description="Operação: parse, format, add, subtract, diff, now")
+    input_field: Optional[str] = Field(None, description="Campo de entrada com a data")
+    input_format: Optional[str] = Field(None, description="Formato de entrada. Ex: '%d/%m/%Y'")
+    output_format: str = Field("%Y-%m-%dT%H:%M:%S", description="Formato de saída")
+    add_value: Optional[int] = Field(None, description="Valor a adicionar/subtrair")
+    add_unit: Optional[str] = Field(None, description="Unidade: seconds, minutes, hours, days, weeks, months, years")
+    output_field: str = Field("datetime_result")
 
-
-class CodeNodeConfig(BaseModel):
-    """Configuração para execução de scripts customizados."""
-    
-    language: SupportedLanguage = Field(default=SupportedLanguage.PYTHON, description="Linguagem do script")
-    code: str = Field(
-        ..., 
-        description="O código em si. Deve acessar o payload via uma variável global (ex: 'return items[0].json;')"
-    )
-    
-    # Comportamento de execução (Crucial para listas)
-    run_once_for_all: bool = Field(
-        default=True, 
-        description="Se True, o script recebe o Array inteiro de uma vez. Se False, o motor roda o script N vezes (uma para cada item da lista)."
-    )
-
-class DateTimeNodeConfig(BaseModel):
-    """Configuração para manipulação e formatação de datas e timestamps."""
-    
-    property_to_format: str = Field(..., description="Caminho do campo atual (ex: '{{pedido.data_criacao}}')")
-    target_property: str = Field(
-        ..., 
-        description="Onde salvar o resultado. Se for igual a property_to_format, sobrescreve o valor."
-    )
-    
-    # Formatação
-    from_format: str = Field(default="auto", description="O formato de entrada ('auto', 'ISO8601', 'DD/MM/YYYY', 'X' para timestamp)")
-    to_format: str = Field(..., description="O formato de saída desejado (ex: 'YYYY-MM-DD HH:mm:ss')")
-    
-    # Fusos Horários
-    from_timezone: str = Field(default="UTC", description="Fuso horário de origem (ex: 'America/Sao_Paulo')")
-    to_timezone: str = Field(default="UTC", description="Fuso horário de destino")
-
-
-class DataConverterNodeConfig(BaseModel):
-    """Configuração para conversão de estruturas de dados/arquivos."""
-    
-    input_format: DataFormat = Field(..., description="O formato atual do dado")
-    output_format: DataFormat = Field(..., description="O formato que o dado deve assumir")
-    
-    source_property: str = Field(
-        default="data", 
-        description="Qual campo do payload contém os dados a serem convertidos"
-    )
-    target_property: str = Field(
-        default="data_converted", 
-        description="Onde o resultado convertido será armazenado"
-    )
-    
-    # Opções específicas dependendo da conversão
-    options: Optional[Dict[str, Any]] = Field(
-        default=None, 
-        description="Opções extras. Ex: para CSV pode conter {'delimiter': ';', 'header_row': True}"
-    )
+class DataConverterConfig(BaseModel):
+    kind: TransformationKind = TransformationKind.DATA_CONVERTER
+    input_format: FileFormat = Field(..., description="Formato de entrada")
+    output_format: FileFormat = Field(..., description="Formato de saída")
+    input_field: str = Field("data", description="Campo no contexto com os dados de entrada")
+    output_field: str = Field("converted", description="Campo no contexto para o resultado convertido")
+    csv_delimiter: str = Field(",", description="Delimitador para CSV")
+    csv_has_header: bool = Field(True)

@@ -1,84 +1,112 @@
 from enum import Enum
 
+class NodeGroup(str, Enum):
+    TRIGGER = "trigger"
+    ACTION = "action"
+    LOGIC = "logic"
+    TRANSFORMATION = "transformation"
+    STORAGE = "storage"
+    AI = "ai"
+
+class TriggerKind(str, Enum):
+    CRON = "cron"
+    WEBHOOK = "webhook"
+    MANUAL = "manual"
+    SUB_WORKFLOW = "sub_workflow"
+    EVENT_QUEUE = "event_queue"
+
+class ActionKind(str, Enum):
+    HTTP_REQUEST = "http_request"
+    SQL_DATABASE = "sql_database"
+    EMAIL_SENDER = "email_sender"
+    EXECUTE_SUB_WORKFLOW = "execute_sub_workflow"
+    NOSQL_DATABASE = "nosql_database"
+
+class LogicKind(str, Enum):
+    IF = "if"
+    SWITCH = "switch"
+    LOOP = "loop"
+    MERGE = "merge"
+    ERROR_CATCH = "error_catch"
+    WAIT = "wait"
+
+class TransformationKind(str, Enum):
+    MAPPER = "mapper"
+    CODE = "code"
+    DATETIME = "datetime"
+    DATA_CONVERTER = "data_converter"
+
+class StorageKind(str, Enum):
+    GLOBAL_STATE = "global_state"
+    FILE_STORAGE = "file_storage"
+
+class AIKind(str, Enum):
+    LLM = "llm"
+    CHAT_MEMORY = "chat_memory"
+    VECTOR_STORE = "vector_store"
+    AGENT = "agent"
 
 class HttpMethod(str, Enum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
-    DELETE = "DELETE"
     PATCH = "PATCH"
-
+    DELETE = "DELETE"
 
 class SqlOperation(str, Enum):
-    SELECT = "SELECT"
-    INSERT = "INSERT"
-    UPDATE = "UPDATE"
-    DELETE = "DELETE"
-    CUSTOM = "CUSTOM" # Para DDL como CREATE TABLE, DROP, etc.
+    SELECT = "select"
+    INSERT = "insert"
+    UPDATE = "update"
+    UPSERT = "upsert"
+    DELETE = "delete"
+    EXECUTE = "execute"
 
+class FileFormat(str, Enum):
+    CSV = "csv"
+    JSON = "json"
+    XLSX = "xlsx"
+    PARQUET = "parquet"
+    TXT = "txt"
 
-class Operator(str, Enum):
+class ConditionOperator(str, Enum):
     EQUALS = "=="
     NOT_EQUALS = "!="
     GREATER_THAN = ">"
     LESS_THAN = "<"
+    GREATER_OR_EQUAL = ">="
+    LESS_OR_EQUAL = "<="
     CONTAINS = "contains"
+    NOT_CONTAINS = "not_contains"
     IS_EMPTY = "is_empty"
-
-class MergeMode(str, Enum):
-    WAIT_ALL = "wait_all" # Espera as duas portas (Input 1 e Input 2) terminarem
-    PASS_THROUGH = "pass_through" # A primeira ramificação que chegar passa, e o nó ignora a mais lenta
-
-class CombineStrategy(str, Enum):
-    MERGE_BY_KEY = "merge_by_key" # Junta os dois JSONs num só (A+B = AB)
-    APPEND_ARRAY = "append_array" # Cria uma lista com os dois resultados [A, B]
-    KEEP_INPUT_1 = "keep_input_1" # Descarta os dados da ramificação 2 e segue só com o JSON da 1
-
-
-class DataType(str, Enum):
-    STRING = "string"
-    NUMBER = "number"
-    BOOLEAN = "boolean"
-    OBJECT = "object"
-    ARRAY = "array"
+    IS_NOT_EMPTY = "is_not_empty"
 
 class SupportedLanguage(str, Enum):
-    PYTHON = "python"         # Muito pedido por engenheiros de dados
-
-
-class DataFormat(str, Enum):
-    JSON = "json"
-    XML = "xml"
-    CSV = "csv"
-    TEXT = "text"
-    BASE64 = "base64"
-
-
-class StateOperation(str, Enum):
-    SET = "set"       # Salva ou atualiza um valor
-    GET = "get"       # Recupera um valor
-    DELETE = "delete" # Apaga a variável
-
-class StateScope(str, Enum):
-    WORKFLOW = "workflow" # A variável só é visível para futuras execuções deste mesmo fluxo
-    GLOBAL = "global"     # A variável pode ser lida por QUALQUER outro fluxo do seu sistema
-
-class FileOperation(str, Enum):
-    READ = "read"   # Lê do disco e joga para o payload em base64 ou buffer
-    WRITE = "write" # Pega do payload e salva no disco
-    DELETE = "delete"
+    PYTHON = "python"
 
 class LLMProvider(str, Enum):
     OPENAI = "openai"
-    GEMINI = "gemini"
     ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    OLLAMA = "ollama"
 
-class MemoryStrategy(str, Enum):
-    BUFFER = "buffer"               # Guarda e envia as últimas N mensagens
-    BUFFER_WINDOW = "buffer_window" # Guarda mensagens dos últimos N minutos
-    SUMMARY = "summary"             # Pede pro LLM resumir as conversas antigas para economizar tokens
+class MemoryType(str, Enum):
+    BUFFER = "buffer"
+    SUMMARY = "summary"
+    WINDOW = "window"
 
+class VectorStoreOperation(str, Enum):
+    SEARCH = "search"
+    INSERT = "insert"
+    DELETE = "delete"
 
-class VectorOperation(str, Enum):
-    UPSERT = "upsert" # Adicionar/Atualizar documentos no banco vetorial
-    SEARCH = "search" # Buscar contexto semelhante à pergunta
+class StateOperation(str, Enum):
+    GET = "get"
+    SET = "set"
+    DELETE = "delete"
+    INCREMENT = "increment"
+
+class FileOperation(str, Enum):
+    READ = "read"
+    WRITE = "write"
+    APPEND = "append"
+    DELETE = "delete"

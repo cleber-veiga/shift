@@ -1114,3 +1114,108 @@ export async function testDataSourceConnection(
     }
   )
 }
+
+// ─── Workflows ────────────────────────────────────────────────────────────────
+
+export type WorkflowNodeDefinition = {
+  node_id: string
+  name: string
+  group: string
+  type: string
+  config: Record<string, unknown>
+  position: { x: number; y: number }
+  notes: string | null
+  disabled: boolean
+}
+
+export type WorkflowEdgeDefinition = {
+  id: string
+  from_node_id: string
+  to_node_id: string
+  from_handle: string | null
+  to_handle: string | null
+  condition: Record<string, unknown> | null
+}
+
+export type WorkflowDefinition = {
+  version: string
+  variables: Record<string, unknown>
+  nodes: WorkflowNodeDefinition[]
+  edges: WorkflowEdgeDefinition[]
+}
+
+export type WorkflowCreatePayload = {
+  name: string
+  description: string
+  definition: WorkflowDefinition
+  player_id: string | null
+  type: string
+  active: boolean
+  public: boolean
+}
+
+export type WorkflowUpdatePayload = Partial<WorkflowCreatePayload>
+
+export type WorkflowRecord = {
+  id: string
+  workspace_id: string
+  name: string
+  description: string | null
+  definition: WorkflowDefinition
+  player_id: string | null
+  type: string
+  status: string
+  active: boolean
+  public: boolean
+  last_run_at: string | null
+  last_run_status: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type WorkflowListItem = {
+  id: string
+  name: string
+  type: string
+  status: string
+  active: boolean
+  last_run_at: string | null
+  last_run_status: string | null
+  created_at: string
+}
+
+export async function listWorkflows(workspaceId: string): Promise<WorkflowListItem[]> {
+  return authorizedRequest<WorkflowListItem[]>(`/workspaces/${workspaceId}/workflows`, {
+    method: "GET",
+  })
+}
+
+export async function deleteWorkflow(workspaceId: string, workflowId: string): Promise<void> {
+  return authorizedRequest<void>(`/workspaces/${workspaceId}/workflows/${workflowId}`, {
+    method: "DELETE",
+  })
+}
+
+export async function createWorkflow(
+  workspaceId: string,
+  payload: WorkflowCreatePayload
+): Promise<WorkflowRecord> {
+  return authorizedRequest<WorkflowRecord>(`/workspaces/${workspaceId}/workflows`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateWorkflow(
+  workspaceId: string,
+  workflowId: string,
+  payload: WorkflowUpdatePayload
+): Promise<WorkflowRecord> {
+  return authorizedRequest<WorkflowRecord>(
+    `/workspaces/${workspaceId}/workflows/${workflowId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  )
+}

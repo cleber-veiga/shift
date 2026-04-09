@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronDown, Copy, RefreshCw } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type PanelProps<T> = {
   nodeData: T
@@ -288,20 +289,18 @@ function SelectField({
   options: Array<{ value: string; label: string }>
 }) {
   return (
-    <div className="relative">
-      <select
-        className={`${fieldClass} appearance-none pr-9`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
+    <Select value={value} onValueChange={(val) => onChange(val)}>
+      <SelectTrigger className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <SelectItem key={opt.value} value={opt.value}>
             {opt.label}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -1125,30 +1124,37 @@ export function EventQueueTriggerConfigPanel({ nodeData, onUpdate }: PanelProps<
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>Queue provider</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.queue_provider}
-            onChange={(e) => setForm((prev) => ({ ...prev, queue_provider: e.target.value as QueueProvider }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, queue_provider: value as QueueProvider }))}
           >
-            <option value="rabbitmq">rabbitmq</option>
-            <option value="kafka">kafka</option>
-            <option value="aws_sqs">aws_sqs</option>
-            <option value="azure_servicebus">azure_servicebus</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rabbitmq">rabbitmq</SelectItem>
+              <SelectItem value="kafka">kafka</SelectItem>
+              <SelectItem value="aws_sqs">aws_sqs</SelectItem>
+              <SelectItem value="azure_servicebus">azure_servicebus</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Credencial</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.credential_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}
           >
-            <option value="">Selecionar...</option>
-            {credentialOptions.map((credential) => (
-              <option key={credential.id} value={credential.id}>{credential.label}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecionar..." />
+            </SelectTrigger>
+            <SelectContent>
+              {credentialOptions.map((credential) => (
+                <SelectItem key={credential.id} value={credential.id}>{credential.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type PanelProps<T> = {
   nodeData: T
@@ -228,22 +229,26 @@ export function IfNodeConfigPanel({ nodeData, onUpdate }: PanelProps<IfNodeConfi
                   setForm((prev) => ({ ...prev, conditions: next }))
                 }}
               />
-              <select
-                className={fieldClass}
+              <Select
                 value={condition.operator}
-                onChange={(e) => {
+                onValueChange={(value) => {
                   const next = [...form.conditions]
-                  next[index] = { ...next[index], operator: e.target.value as IfOperator }
+                  next[index] = { ...next[index], operator: value as IfOperator }
                   setForm((prev) => ({ ...prev, conditions: next }))
                 }}
               >
-                <option value="==">==</option>
-                <option value="!=">!=</option>
-                <option value=">">&gt;</option>
-                <option value="<">&lt;</option>
-                <option value="contains">contains</option>
-                <option value="is_empty">is_empty</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="==">==</SelectItem>
+                  <SelectItem value="!=">!=</SelectItem>
+                  <SelectItem value=">">&gt;</SelectItem>
+                  <SelectItem value="<">&lt;</SelectItem>
+                  <SelectItem value="contains">contains</SelectItem>
+                  <SelectItem value="is_empty">is_empty</SelectItem>
+                </SelectContent>
+              </Select>
               <input
                 className={fieldClass}
                 placeholder="pago"
@@ -352,19 +357,23 @@ export function SwitchNodeConfigPanel({ nodeData, onUpdate }: PanelProps<SwitchN
                   setForm((prev) => ({ ...prev, routes: next }))
                 }}
               />
-              <select
-                className={fieldClass}
+              <Select
                 value={route.operator}
-                onChange={(e) => {
+                onValueChange={(value) => {
                   const next = [...form.routes]
-                  next[index] = { ...next[index], operator: e.target.value as SwitchOperator }
+                  next[index] = { ...next[index], operator: value as SwitchOperator }
                   setForm((prev) => ({ ...prev, routes: next }))
                 }}
               >
-                <option value="==">==</option>
-                <option value="!=">!=</option>
-                <option value="contains">contains</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="==">==</SelectItem>
+                  <SelectItem value="!=">!=</SelectItem>
+                  <SelectItem value="contains">contains</SelectItem>
+                </SelectContent>
+              </Select>
               <input
                 className={fieldClass}
                 placeholder="credit_card"

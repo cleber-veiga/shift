@@ -37,3 +37,4 @@ class WorkspacePlayer(Base):
 
     workspace: Mapped["Workspace"] = relationship(back_populates="players")
     projects: Mapped[list["Project"]] = relationship(back_populates="player")
+    workflows: Mapped[list["Workflow"]] = relationship(back_populates="player")

@@ -17,6 +17,7 @@ import {
 import { useDashboard } from "@/lib/context/dashboard-context"
 import { MorphLoader } from "@/components/ui/morph-loader"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -434,17 +435,21 @@ function WorkspaceEditor({
                 <label className="mb-1 block text-[9px] font-bold uppercase text-muted-foreground">
                   Tipo do Banco de Dados *
                 </label>
-                <select
+                <Select
                   value={playerDatabaseType}
-                  onChange={(event) => setPlayerDatabaseType(event.target.value as WorkspacePlayerDatabaseType)}
-                  className="h-8 w-full rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
+                  onValueChange={(value) => setPlayerDatabaseType(value as WorkspacePlayerDatabaseType)}
                 >
-                  {databaseOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {databaseOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {playerFormError ? (

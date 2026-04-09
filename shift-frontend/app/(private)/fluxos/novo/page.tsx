@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import {
   Background,
   BackgroundVariant,
@@ -51,6 +52,7 @@ import {
   Power,
   Rows3,
   Save,
+  Settings2,
   Shield,
   Repeat2,
   Sparkles,
@@ -62,7 +64,15 @@ import {
   X,
   Zap,
 } from "lucide-react"
+import {
+  createWorkflow,
+  updateWorkflow,
+  listWorkspacePlayers,
+  type WorkspacePlayer,
+} from "@/lib/auth"
+import { useDashboard } from "@/lib/context/dashboard-context"
 import { useDashboardHeader } from "@/lib/context/header-context"
+import { useRouter } from "next/navigation"
 import {
   CronNodeConfigPanel,
   EventQueueTriggerConfigPanel,
@@ -1794,41 +1804,109 @@ type WorkflowEdgeData = {
 
 type ExportedWorkflowNode = {
   node_id: string
+  name: string
   group: string
   type: string
-  name: string
-  description: string
   config: Record<string, unknown>
-  position_x: number
-  position_y: number
+  position: { x: number; y: number }
+  notes: string | null
+  disabled: boolean
 }
 
 type ExportedWorkflowEdge = {
-  edge_id: string
+  id: string
   from_node_id: string
   to_node_id: string
+  from_handle: string | null
+  to_handle: string | null
   condition: Record<string, unknown> | null
+}
+
+type WorkflowType = "MIGRATION" | "CONFIGURATION"
+
+const workflowTypeToApiType: Record<WorkflowType, string> = {
+  MIGRATION: "migration",
+  CONFIGURATION: "config",
+}
+
+type WorkflowSettings = {
+  summaryDescription: string
+  aiContext: string
+  workflowType: WorkflowType
+  playerId: string
 }
 
 type ExportedWorkflow = {
   name: string
   description: string
-  active: boolean
   definition: {
-    nodes: Array<{
-      node_id: string
-      type: string
-      config: Record<string, unknown>
-      position_x: number
-      position_y: number
-    }>
-    edges: Array<{
-      from_node_id: string
-      to_node_id: string
-      condition: Record<string, unknown> | null
-    }>
+    version: string
     variables: Record<string, unknown>
+    nodes: ExportedWorkflowNode[]
+    edges: ExportedWorkflowEdge[]
   }
+  player_id: string | null
+  type: string
+  active: boolean
+  public: boolean
+}
+
+const defaultWorkflowSettings: WorkflowSettings = {
+  summaryDescription: "",
+  aiContext: "",
+  workflowType: "MIGRATION",
+  playerId: "",
+}
+
+const workflowTypeLabels: Record<WorkflowType, string> = {
+  MIGRATION: "Migracao",
+  CONFIGURATION: "Configuracao",
+}
+
+const workflowTypeOptions: Array<{
+  value: WorkflowType
+  title: string
+  description: string
+  icon: React.ElementType
+  iconBg: string
+  iconText: string
+  selectedBorder: string
+  selectedBg: string
+  selectedShadow: string
+  hoverBorder: string
+}> = [
+  {
+    value: "MIGRATION",
+    title: "Migracao",
+    description: "Orquestra etapas para extracao, transformacao e carga entre sistemas.",
+    icon: ArrowLeftRight,
+    iconBg: "bg-blue-500/10",
+    iconText: "text-blue-600 dark:text-blue-400",
+    selectedBorder: "border-blue-500",
+    selectedBg: "bg-blue-500/5",
+    selectedShadow: "shadow-[0_0_0_1px_color-mix(in_oklab,theme(colors.blue.500)_28%,transparent)]",
+    hoverBorder: "hover:border-blue-400/50",
+  },
+  {
+    value: "CONFIGURATION",
+    title: "Configuracao",
+    description: "Define rotinas operacionais, ajustes internos e automacoes de suporte.",
+    icon: WandSparkles,
+    iconBg: "bg-violet-500/10",
+    iconText: "text-violet-600 dark:text-violet-400",
+    selectedBorder: "border-violet-500",
+    selectedBg: "bg-violet-500/5",
+    selectedShadow: "shadow-[0_0_0_1px_color-mix(in_oklab,theme(colors.violet.500)_28%,transparent)]",
+    hoverBorder: "hover:border-violet-400/50",
+  },
+]
+
+function getWorkflowSettingsError(settings: WorkflowSettings) {
+  if (settings.workflowType === "MIGRATION" && !settings.playerId.trim()) {
+    return "Selecione um concorrente para workflows do tipo migracao."
+  }
+
+  return ""
 }
 
 const exportedNodeTypeByKind: Record<WorkflowNodeKind, string> = {
@@ -1840,7 +1918,7 @@ const exportedNodeTypeByKind: Record<WorkflowNodeKind, string> = {
   httpRequestAction: "http_request",
   sqlDatabaseAction: "sql_database",
   emailSenderAction: "email_sender",
-  executeSubWorkflowAction: "execute_subworkflow",
+  executeSubWorkflowAction: "execute_sub_workflow",
   noSqlDatabaseAction: "nosql_database",
   ifLogic: "if",
   switchLogic: "switch",
@@ -1850,7 +1928,7 @@ const exportedNodeTypeByKind: Record<WorkflowNodeKind, string> = {
   waitLogic: "wait",
   mapperTransform: "mapper",
   codeTransform: "code",
-  dateTimeTransform: "date_time",
+  dateTimeTransform: "datetime",
   dataConverterTransform: "data_converter",
   globalStateStorage: "global_state",
   fileStorage: "file_storage",
@@ -2478,7 +2556,35 @@ const palette: PaletteGroup[] = [
   },
 ]
 
-function WorkflowCanvas({ flowName }: { flowName: string }) {
+type WorkflowCanvasHandle = { save: () => void }
+
+type WorkflowCanvasProps = {
+  flowName: string
+  onFlowNameChange: (name: string) => void
+  workflowSettings: WorkflowSettings
+  onWorkflowSettingsChange: (next: WorkflowSettings) => void
+  workflowPlayers: WorkspacePlayer[]
+  workflowPlayersLoading: boolean
+  workflowPlayersError: string
+  selectedWorkspaceName: string | null
+  workspaceId: string | null
+  savedWorkflowId: string | null
+  onWorkflowSaved: (id: string) => void
+}
+
+const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasProps>(function WorkflowCanvas({
+  flowName,
+  onFlowNameChange,
+  workflowSettings,
+  onWorkflowSettingsChange,
+  workflowPlayers,
+  workflowPlayersLoading,
+  workflowPlayersError,
+  selectedWorkspaceName,
+  workspaceId,
+  savedWorkflowId,
+  onWorkflowSaved,
+}, ref) {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const { screenToFlowPosition } = useReactFlow()
 
@@ -2491,6 +2597,55 @@ function WorkflowCanvas({ flowName }: { flowName: string }) {
   const [pendingInsert, setPendingInsert] = useState<InsertEdgeRequest | null>(null)
   const [pointerMode, setPointerMode] = useState<"select" | "pan">("pan")
   const [jsonModalOpen, setJsonModalOpen] = useState(false)
+  const [workflowSettingsOpen, setWorkflowSettingsOpen] = useState(false)
+  const [workflowSettingsDraft, setWorkflowSettingsDraft] = useState<WorkflowSettings>(workflowSettings)
+  const [flowNameDraft, setFlowNameDraft] = useState(flowName)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveNotification, setSaveNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const hasSelectedWorkspace = Boolean(selectedWorkspaceName)
+  const isWorkflowPlayersLoading = workflowPlayersLoading
+  const currentWorkflowPlayersError = workflowPlayersError
+  const availableWorkflowPlayers = workflowPlayers
+
+  const workflowSettingsError = useMemo(
+    () => getWorkflowSettingsError(workflowSettingsDraft),
+    [workflowSettingsDraft]
+  )
+
+  const savedWorkflowSettingsError = useMemo(
+    () => getWorkflowSettingsError(workflowSettings),
+    [workflowSettings]
+  )
+
+  const selectedWorkflowPlayer = useMemo(
+    () => availableWorkflowPlayers.find((item) => item.id === workflowSettings.playerId) ?? null,
+    [availableWorkflowPlayers, workflowSettings.playerId]
+  )
+
+  useEffect(() => {
+    if (!workflowSettingsOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [workflowSettingsOpen])
+
+  useEffect(() => {
+    if (!workflowSettingsOpen) return
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setWorkflowSettingsOpen(false)
+        setWorkflowSettingsDraft(workflowSettings)
+      }
+    }
+
+    document.addEventListener("keydown", handleEscape)
+    return () => document.removeEventListener("keydown", handleEscape)
+  }, [workflowSettings, workflowSettingsOpen])
 
   const filteredPalette = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -2525,46 +2680,76 @@ function WorkflowCanvas({ flowName }: { flowName: string }) {
       const data = node.data as WorkflowNodeData
       return {
         node_id: nodeIdMap.get(node.id) ?? node.id,
+        name: data.label,
         group: getNodeGroup(data.kind),
         type: exportedNodeTypeByKind[data.kind],
-        name: data.label,
-        description: data.description ?? "",
         config: normalizeNodeConfig(data.kind, data.config),
-        position_x: Math.round(node.position.x),
-        position_y: Math.round(node.position.y),
+        position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
+        notes: data.description ?? null,
+        disabled: false,
       }
     })
 
     const exportedEdges: ExportedWorkflowEdge[] = edges.map((edge) => ({
-      edge_id: edge.id,
+      id: edge.id,
       from_node_id: nodeIdMap.get(edge.source) ?? edge.source,
       to_node_id: nodeIdMap.get(edge.target) ?? edge.target,
+      from_handle: edge.sourceHandle ?? null,
+      to_handle: edge.targetHandle ?? null,
       condition: parseCondition(edge.data?.condition),
     }))
 
     return {
       name: flowName,
-      description: "",
-      active: true,
+      description: workflowSettings.summaryDescription,
       definition: {
-        nodes: exportedNodes.map((node) => ({
-          node_id: node.node_id,
-          type: node.type,
-          config: node.config,
-          position_x: node.position_x,
-          position_y: node.position_y,
-        })),
-        edges: exportedEdges.map((edge) => ({
-          from_node_id: edge.from_node_id,
-          to_node_id: edge.to_node_id,
-          condition: edge.condition,
-        })),
+        version: "1.0",
         variables: {},
+        nodes: exportedNodes,
+        edges: exportedEdges,
       },
+      player_id: hasSelectedWorkspace && selectedWorkflowPlayer ? selectedWorkflowPlayer.id : null,
+      type: workflowTypeToApiType[workflowSettings.workflowType],
+      active: true,
+      public: false,
     }
-  }, [edges, flowName, nodes])
+  }, [edges, flowName, hasSelectedWorkspace, nodes, selectedWorkflowPlayer, workflowSettings])
 
   const workflowJsonText = useMemo(() => JSON.stringify(workflowJson, null, 2), [workflowJson])
+
+  const handleCanvasSave = useCallback(async () => {
+    if (!workspaceId) {
+      setSaveNotification({ type: "error", message: "Selecione um workspace antes de salvar." })
+      setTimeout(() => setSaveNotification(null), 4000)
+      return
+    }
+    if (isSaving) return
+    setIsSaving(true)
+    setSaveNotification(null)
+    try {
+      const payload = workflowJson
+      let id: string
+      if (savedWorkflowId) {
+        const result = await updateWorkflow(workspaceId, savedWorkflowId, payload)
+        id = result.id
+      } else {
+        const result = await createWorkflow(workspaceId, payload)
+        id = result.id
+        onWorkflowSaved(id)
+      }
+      setSaveNotification({ type: "success", message: "Workflow salvo com sucesso." })
+    } catch (err) {
+      setSaveNotification({
+        type: "error",
+        message: err instanceof Error ? err.message : "Erro ao salvar o workflow.",
+      })
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setSaveNotification(null), 4000)
+    }
+  }, [isSaving, onWorkflowSaved, savedWorkflowId, workflowJson, workspaceId])
+
+  useImperativeHandle(ref, () => ({ save: () => { void handleCanvasSave() } }), [handleCanvasSave])
 
   const configNodeHeader = useMemo(() => {
     if (!configNode) return null
@@ -2768,18 +2953,89 @@ function WorkflowCanvas({ flowName }: { flowName: string }) {
     [onRequestInsert, openNodeConfig, pendingInsert, screenToFlowPosition, setEdges, setNodes]
   )
 
+  const openWorkflowSettings = useCallback(() => {
+    setWorkflowSettingsDraft(workflowSettings)
+    setFlowNameDraft(flowName)
+    setWorkflowSettingsOpen(true)
+  }, [workflowSettings, flowName])
+
+  const closeWorkflowSettings = useCallback(() => {
+    setWorkflowSettingsOpen(false)
+    setWorkflowSettingsDraft(workflowSettings)
+    setFlowNameDraft(flowName)
+  }, [workflowSettings, flowName])
+
+  const saveWorkflowSettings = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+
+      const error = getWorkflowSettingsError(workflowSettingsDraft)
+      if (error) return
+
+      const trimmedName = flowNameDraft.trim()
+      if (trimmedName.length >= 2) onFlowNameChange(trimmedName)
+
+      onWorkflowSettingsChange({
+        summaryDescription: workflowSettingsDraft.summaryDescription.trim(),
+        aiContext: workflowSettingsDraft.aiContext.trim(),
+        workflowType: workflowSettingsDraft.workflowType,
+        playerId: workflowSettingsDraft.playerId.trim(),
+      })
+      setWorkflowSettingsOpen(false)
+    },
+    [onFlowNameChange, onWorkflowSettingsChange, workflowSettingsDraft, flowNameDraft]
+  )
+
   return (
     <div ref={wrapperRef} className="relative h-[calc(100vh-3rem)] w-full overflow-hidden">
-      <div className="absolute right-4 top-4 z-20 flex flex-col items-end gap-2">
-        <button
-          type="button"
-          className="inline-flex size-10 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-accent"
-          onClick={() => setPaletteOpen(true)}
-          aria-label="Adicionar nó"
+      {/* Save notification */}
+      {saveNotification ? (
+        <div
+          className={`absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-xl border px-4 py-2 text-sm shadow-lg transition-all ${
+            saveNotification.type === "success"
+              ? "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300"
+              : "border-destructive/30 bg-destructive/10 text-destructive"
+          }`}
         >
-          <Plus className="size-5" />
-        </button>
+          {saveNotification.message}
+        </div>
+      ) : null}
 
+      {/* Saving overlay indicator */}
+      {isSaving ? (
+        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground shadow-lg">
+          Salvando...
+        </div>
+      ) : null}
+
+      <div className="absolute right-4 top-4 z-20 flex flex-col items-end gap-2">
+        {/* Grupo: configurações + adicionar nó */}
+        <div className="inline-flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <button
+            type="button"
+            onClick={openWorkflowSettings}
+            aria-label="Configurar workflow"
+            title="Configurar workflow"
+            className={`inline-flex size-9 items-center justify-center border-b border-border transition-colors hover:bg-accent hover:text-foreground ${
+              savedWorkflowSettingsError
+                ? "text-destructive hover:bg-destructive/10"
+                : "text-muted-foreground"
+            }`}
+          >
+            <Settings2 className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Adicionar nó"
+            title="Adicionar nó"
+            className="inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Plus className="size-4" />
+          </button>
+        </div>
+
+        {/* Grupo: modo seleção + modo mão + JSON */}
         <div className="inline-flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           <button
             type="button"
@@ -2799,24 +3055,22 @@ function WorkflowCanvas({ flowName }: { flowName: string }) {
             aria-label="Modo mão"
             title="Modo mão"
             aria-pressed={pointerMode === "pan"}
-            className={`inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+            className={`inline-flex size-9 items-center justify-center border-b border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
               pointerMode === "pan" ? "bg-accent text-foreground" : ""
             }`}
           >
             <Hand className="size-4" />
           </button>
+          <button
+            type="button"
+            onClick={() => setJsonModalOpen(true)}
+            aria-label="Visualizar JSON do fluxo"
+            title="Visualizar JSON do fluxo"
+            className="inline-flex size-9 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Braces className="size-4" />
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setJsonModalOpen(true)}
-          aria-label="Visualizar JSON do fluxo"
-          title="Visualizar JSON do fluxo"
-          className="inline-flex h-9 items-center gap-1 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
-        >
-          <Braces className="size-4" />
-          JSON
-        </button>
       </div>
 
       <ReactFlow
@@ -2873,7 +3127,188 @@ function WorkflowCanvas({ flowName }: { flowName: string }) {
               <pre className="min-h-full rounded-lg border border-border bg-card p-3 font-mono text-xs leading-5 text-foreground">
                 {workflowJsonText}
               </pre>
+              <div className="mt-3 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
+                <p>
+                  Tipo: <span className="font-medium text-foreground">{workflowTypeLabels[workflowSettings.workflowType]}</span>
+                </p>
+                <p>
+                  Concorrente: <span className="font-medium text-foreground">{selectedWorkflowPlayer?.name ?? "Nenhum"}</span>
+                </p>
+              </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {workflowSettingsOpen ? (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
+          onClick={closeWorkflowSettings}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Configuracoes do workflow"
+            className="w-[min(640px,96vw)] rounded-2xl border border-border bg-card shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <p className="text-base font-semibold text-foreground">Configuracoes do workflow</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedWorkspaceName
+                    ? `Workspace atual: ${selectedWorkspaceName}`
+                    : "Selecione um workspace para vincular concorrentes."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeWorkflowSettings}
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Fechar configuracoes do workflow"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <form onSubmit={saveWorkflowSettings} className="space-y-4 px-5 py-4">
+              {/* Tipo */}
+              <div className="flex flex-wrap gap-3">
+                {workflowTypeOptions.map((option) => {
+                  const Icon = option.icon
+                  const isSelected = workflowSettingsDraft.workflowType === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() =>
+                        setWorkflowSettingsDraft((current) => ({
+                          ...current,
+                          workflowType: option.value,
+                          playerId: option.value === "MIGRATION" ? current.playerId : "",
+                        }))
+                      }
+                      className={`flex min-h-[80px] flex-1 items-start gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                        isSelected
+                          ? `${option.selectedBorder} ${option.selectedBg} ${option.selectedShadow}`
+                          : `border-border bg-background/70 ${option.hoverBorder} hover:bg-accent/40`
+                      }`}
+                    >
+                      <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${option.iconBg} ${option.iconText}`}>
+                        <Icon className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{option.title}</p>
+                        <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{option.description}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Nome */}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Nome do workflow</label>
+                <input
+                  value={flowNameDraft}
+                  onChange={(event) => setFlowNameDraft(event.target.value)}
+                  placeholder="Dê um nome ao workflow"
+                  className="h-10 w-full rounded-xl border border-input bg-background/80 px-3.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+                />
+              </div>
+
+              {/* Concorrente (só para MIGRATION) */}
+              {workflowSettingsDraft.workflowType === "MIGRATION" ? (
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-foreground">Concorrente *</label>
+                  <Select
+                    value={workflowSettingsDraft.playerId}
+                    onValueChange={(value) =>
+                      setWorkflowSettingsDraft((current) => ({
+                        ...current,
+                        playerId: value,
+                      }))
+                    }
+                    disabled={!hasSelectedWorkspace || isWorkflowPlayersLoading || availableWorkflowPlayers.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione um concorrente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableWorkflowPlayers.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+
+              {/* Descrição resumida */}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">
+                  Descrição resumida <span className="font-normal text-muted-foreground">(opcional)</span>
+                </label>
+                <textarea
+                  value={workflowSettingsDraft.summaryDescription}
+                  onChange={(event) =>
+                    setWorkflowSettingsDraft((current) => ({
+                      ...current,
+                      summaryDescription: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  maxLength={300}
+                  placeholder="Explique rapidamente o objetivo do workflow."
+                  className="w-full rounded-xl border border-input bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+                />
+              </div>
+
+              {isWorkflowPlayersLoading ? (
+                <div className="rounded-xl border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+                  Carregando concorrentes do workspace...
+                </div>
+              ) : null}
+
+              {currentWorkflowPlayersError ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {currentWorkflowPlayersError}
+                </div>
+              ) : null}
+
+              {!isWorkflowPlayersLoading &&
+              !currentWorkflowPlayersError &&
+              hasSelectedWorkspace &&
+              availableWorkflowPlayers.length === 0 ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+                  Nenhum concorrente foi encontrado neste workspace.
+                </div>
+              ) : null}
+
+              {workflowSettingsError ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {workflowSettingsError}
+                </div>
+              ) : null}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeWorkflowSettings}
+                  className="inline-flex h-9 items-center justify-center rounded-xl border border-border bg-card px-4 text-xs font-medium text-foreground transition hover:bg-accent"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={Boolean(workflowSettingsError) || Boolean(currentWorkflowPlayersError)}
+                  className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Salvar configuracoes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
@@ -3330,31 +3765,504 @@ function WorkflowCanvas({ flowName }: { flowName: string }) {
       ) : null}
     </div>
   )
+})
+
+type WorkflowSetupScreenProps = {
+  flowName: string
+  onFlowNameChange: (value: string) => void
+  workflowSettings: WorkflowSettings
+  onWorkflowSettingsChange: (next: WorkflowSettings) => void
+  workflowPlayers: WorkspacePlayer[]
+  workflowPlayersLoading: boolean
+  workflowPlayersError: string
+  selectedWorkspaceName: string | null
+  onCancel: () => void
+  onCreate: () => void
+}
+
+function LegacyWorkflowSetupScreen({
+  flowName,
+  onFlowNameChange,
+  workflowSettings,
+  onWorkflowSettingsChange,
+  workflowPlayers,
+  workflowPlayersLoading,
+  workflowPlayersError,
+  selectedWorkspaceName,
+  onCancel,
+  onCreate,
+}: WorkflowSetupScreenProps) {
+  const workflowSettingsError = getWorkflowSettingsError(workflowSettings)
+  const selectedType = workflowTypeOptions.find((item) => item.value === workflowSettings.workflowType) ?? workflowTypeOptions[0]
+  const SelectedTypeIcon = selectedType.icon
+
+  const canCreate =
+    flowName.trim().length >= 2 &&
+    Boolean(selectedWorkspaceName) &&
+    !workflowSettingsError &&
+    !workflowPlayersLoading &&
+    !(workflowSettings.workflowType === "MIGRATION" && (workflowPlayers.length === 0 || workflowPlayersError))
+
+  return (
+    <div className="min-h-[calc(100vh-3rem)] bg-background px-4 py-5 sm:px-6">
+      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="max-w-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Create from Blank</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">Crie um workflow do zero</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Preencha o basico e entre no editor com tudo pronto.
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-sm font-semibold text-foreground">Escolha o tipo de workflow</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {workflowTypeOptions.map((option) => {
+              const Icon = option.icon
+              const isSelected = workflowSettings.workflowType === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    onWorkflowSettingsChange({
+                      ...workflowSettings,
+                      workflowType: option.value,
+                    })
+                  }
+                  className={`rounded-2xl border px-4 py-3 text-left transition-all ${
+                    isSelected
+                      ? `${option.selectedBorder} ${option.selectedBg} ${option.selectedShadow}`
+                      : `border-border bg-background/70 ${option.hoverBorder} hover:bg-accent/40`
+                  }`}
+                >
+                  <div className={`flex size-8 items-center justify-center rounded-xl ${option.iconBg} ${option.iconText}`}>
+                    <Icon className="size-4" />
+                  </div>
+                  <p className="mt-3 text-lg font-semibold text-foreground">{option.title}</p>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">{option.description}</p>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="my-5 h-px bg-border" />
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_68px]">
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">Nome do workflow</label>
+              <input
+                value={flowName}
+                onChange={(event) => onFlowNameChange(event.target.value)}
+                placeholder="Dê um nome ao workflow"
+                className="h-10 w-full rounded-xl border border-input bg-background/80 px-3.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                Descricao resumida <span className="font-normal text-muted-foreground">(opcional)</span>
+              </label>
+              <textarea
+                value={workflowSettings.summaryDescription}
+                onChange={(event) =>
+                  onWorkflowSettingsChange({
+                    ...workflowSettings,
+                    summaryDescription: event.target.value,
+                  })
+                }
+                rows={3}
+                placeholder="Explique rapidamente o objetivo do workflow."
+                className="w-full rounded-xl border border-input bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">Contexto para IA</label>
+              <textarea
+                value={workflowSettings.aiContext}
+                onChange={(event) =>
+                  onWorkflowSettingsChange({
+                    ...workflowSettings,
+                    aiContext: event.target.value,
+                  })
+                }
+                rows={3}
+                placeholder="Inclua regras, observacoes e contexto que a IA deve considerar."
+                className="w-full rounded-xl border border-input bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Tipo selecionado</label>
+                <div className="flex h-10 items-center rounded-xl border border-border bg-background/60 px-3.5 text-sm font-medium text-foreground">
+                  {workflowTypeLabels[workflowSettings.workflowType]}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">
+                  Concorrente
+                  {workflowSettings.workflowType === "MIGRATION" ? " *" : " (opcional)"}
+                </label>
+                <Select
+                  value={workflowSettings.playerId}
+                  onValueChange={(value) =>
+                    onWorkflowSettingsChange({
+                      ...workflowSettings,
+                      playerId: value,
+                    })
+                  }
+                  disabled={!selectedWorkspaceName || workflowPlayersLoading || workflowPlayers.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={
+                      workflowSettings.workflowType === "MIGRATION"
+                        ? "Selecione um concorrente"
+                        : "Nenhum concorrente"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflowPlayers.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Fonte: `workflow_players` do workspace selecionado.
+                </p>
+              </div>
+            </div>
+
+            {!selectedWorkspaceName ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+                Selecione um workspace antes de criar um workflow.
+              </div>
+            ) : null}
+
+            {workflowPlayersLoading ? (
+              <div className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+                Carregando concorrentes do workspace...
+              </div>
+            ) : null}
+
+            {workflowPlayersError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {workflowPlayersError}
+              </div>
+            ) : null}
+
+            {!workflowPlayersLoading &&
+            !workflowPlayersError &&
+            selectedWorkspaceName &&
+            workflowSettings.workflowType === "MIGRATION" &&
+            workflowPlayers.length === 0 ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+                Este workspace ainda nao possui concorrentes para workflows de migracao.
+              </div>
+            ) : null}
+
+            {workflowSettingsError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {workflowSettingsError}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="hidden items-start justify-center lg:flex lg:justify-end">
+            <div className="flex size-[68px] items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner">
+              <SelectedTypeIcon className="size-6" />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Voce ainda pode editar esses dados no botao de configuracao do editor.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex h-9 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-accent"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={onCreate}
+              disabled={!canCreate}
+              className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Criar workflow
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WorkflowSetupScreen({
+  flowName,
+  onFlowNameChange,
+  workflowSettings,
+  onWorkflowSettingsChange,
+  workflowPlayers,
+  workflowPlayersLoading,
+  workflowPlayersError,
+  selectedWorkspaceName,
+  onCancel,
+  onCreate,
+}: WorkflowSetupScreenProps) {
+  const workflowSettingsError = getWorkflowSettingsError(workflowSettings)
+
+  const canCreate =
+    flowName.trim().length >= 2 &&
+    Boolean(selectedWorkspaceName) &&
+    !workflowSettingsError &&
+    !workflowPlayersLoading &&
+    !(workflowSettings.workflowType === "MIGRATION" && (workflowPlayers.length === 0 || workflowPlayersError))
+
+  return (
+    <div className="h-[calc(100vh-3rem)] w-full overflow-hidden bg-card px-5 py-4 sm:px-6">
+      <div className="flex h-full w-full flex-col">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Crie um workflow do zero</h1>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {workflowTypeOptions.map((option) => {
+            const Icon = option.icon
+            const isSelected = workflowSettings.workflowType === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
+                  onWorkflowSettingsChange({
+                    ...workflowSettings,
+                    workflowType: option.value,
+                    playerId: option.value === "MIGRATION" ? workflowSettings.playerId : "",
+                  })
+                }
+                className={`min-h-[112px] w-full max-w-[320px] rounded-xl border px-4 py-4 text-left transition-all ${
+                  isSelected
+                    ? `${option.selectedBorder} ${option.selectedBg} ${option.selectedShadow}`
+                    : `border-border bg-background/70 ${option.hoverBorder} hover:bg-accent/40`
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${option.iconBg} ${option.iconText}`}>
+                    <Icon className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-foreground">{option.title}</p>
+                    <p className="mt-0.5 text-sm leading-5 text-muted-foreground">{option.description}</p>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="my-4 h-px bg-border" />
+
+        <div className="min-h-0 flex-1">
+          <div className="max-w-[652px] space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                Nome do workflow
+              </label>
+              <input
+                value={flowName}
+                onChange={(event) => onFlowNameChange(event.target.value)}
+                placeholder="Dê um nome ao workflow"
+                className="h-10 w-full rounded-xl border border-input bg-background/80 px-3.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+
+            {workflowSettings.workflowType === "MIGRATION" ? (
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Concorrente *</label>
+                <Select
+                  value={workflowSettings.playerId}
+                  onValueChange={(value) =>
+                    onWorkflowSettingsChange({
+                      ...workflowSettings,
+                      playerId: value,
+                    })
+                  }
+                  disabled={!selectedWorkspaceName || workflowPlayersLoading || workflowPlayers.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um concorrente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflowPlayers.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                Descrição resumida <span className="font-normal text-muted-foreground">(opcional)</span>
+              </label>
+              <textarea
+                value={workflowSettings.summaryDescription}
+                onChange={(event) =>
+                  onWorkflowSettingsChange({
+                    ...workflowSettings,
+                    summaryDescription: event.target.value,
+                  })
+                }
+                rows={4}
+                placeholder="Explique rapidamente o objetivo do workflow."
+                className="w-full rounded-xl border border-input bg-background/80 px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+              />
+            </div>
+
+            {!selectedWorkspaceName ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+                Selecione um workspace antes de criar um workflow.
+              </div>
+            ) : null}
+
+            {workflowPlayersLoading ? (
+              <div className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+                Carregando concorrentes do workspace...
+              </div>
+            ) : null}
+
+            {workflowPlayersError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {workflowPlayersError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-9 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-accent"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={!canCreate}
+            className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Criar workflow
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function NovoFluxoPage() {
+  const router = useRouter()
   const { setConfig, clear } = useDashboardHeader()
+  const { selectedWorkspace } = useDashboard()
   const [flowName, setFlowName] = useState("Novo fluxo")
+  const [isEditorReady, setIsEditorReady] = useState(false)
+  const [workflowSettings, setWorkflowSettings] = useState<WorkflowSettings>(defaultWorkflowSettings)
+  const [savedWorkflowId, setSavedWorkflowId] = useState<string | null>(null)
+  const canvasRef = useRef<WorkflowCanvasHandle>(null)
+  const [workflowPlayers, setWorkflowPlayers] = useState<WorkspacePlayer[]>([])
+  const [workflowPlayersStatusWorkspaceId, setWorkflowPlayersStatusWorkspaceId] = useState<string | null>(null)
+  const [workflowPlayersErrorState, setWorkflowPlayersErrorState] = useState<{
+    workspaceId: string
+    message: string
+  } | null>(null)
 
-  const handleSave = useCallback(() => {}, [])
+  const availableWorkflowPlayers = useMemo(
+    () => (selectedWorkspace?.id === workflowPlayersStatusWorkspaceId ? workflowPlayers : []),
+    [selectedWorkspace?.id, workflowPlayers, workflowPlayersStatusWorkspaceId]
+  )
+
+  const currentWorkflowPlayersError =
+    selectedWorkspace?.id && workflowPlayersErrorState?.workspaceId === selectedWorkspace.id
+      ? workflowPlayersErrorState.message
+      : ""
+
+  const isWorkflowPlayersLoading =
+    Boolean(selectedWorkspace?.id) && workflowPlayersStatusWorkspaceId !== selectedWorkspace?.id
+
+  const handleSave = useCallback(() => {
+    canvasRef.current?.save()
+  }, [])
   const handleRun = useCallback(() => {}, [])
 
   useEffect(() => {
+    if (!selectedWorkspace?.id) return
+
+    let active = true
+    const workspaceId = selectedWorkspace.id
+
+    listWorkspacePlayers(workspaceId)
+      .then((items) => {
+        if (!active) return
+        setWorkflowPlayers(items)
+        setWorkflowPlayersStatusWorkspaceId(workspaceId)
+        setWorkflowPlayersErrorState(null)
+        setWorkflowSettings((current) => ({
+          ...current,
+          playerId: items.some((item) => item.id === current.playerId) ? current.playerId : "",
+        }))
+      })
+      .catch((error) => {
+        if (!active) return
+        setWorkflowPlayers([])
+        setWorkflowPlayersStatusWorkspaceId(workspaceId)
+        setWorkflowPlayersErrorState({
+          workspaceId,
+          message: error instanceof Error ? error.message : "Falha ao carregar os concorrentes do workspace.",
+        })
+        setWorkflowSettings((current) => ({ ...current, playerId: "" }))
+      })
+
+    return () => {
+      active = false
+    }
+  }, [selectedWorkspace?.id])
+
+  useEffect(() => {
+    if (isEditorReady) {
+      setConfig({
+        breadcrumb: (
+          <input
+            value={flowName}
+            onChange={(e) => setFlowName(e.target.value)}
+            placeholder="Nome do fluxo"
+            className="h-7 w-[240px] rounded-md border border-transparent bg-background/60 px-2 text-xs font-medium text-foreground outline-none transition-all hover:border-border focus:border-border focus:bg-background focus:ring-1 focus:ring-primary/20"
+          />
+        ),
+        actions: [
+          { key: "save", label: "Salvar fluxo", icon: Save, onClick: handleSave },
+          { key: "run", label: "Executar fluxo", icon: Play, onClick: handleRun },
+        ],
+      })
+      return
+    }
+
     setConfig({
-      breadcrumb: (
-        <input
-          value={flowName}
-          onChange={(e) => setFlowName(e.target.value)}
-          placeholder="Nome do fluxo"
-          className="h-7 w-[240px] rounded-md border border-transparent bg-background/60 px-2 text-xs font-medium text-foreground outline-none transition-all hover:border-border focus:border-border focus:bg-background focus:ring-1 focus:ring-primary/20"
-        />
-      ),
-      actions: [
-        { key: "save", label: "Salvar fluxo", icon: Save, onClick: handleSave },
-        { key: "run", label: "Executar fluxo", icon: Play, onClick: handleRun },
-      ],
+      breadcrumb: <span className="text-sm font-medium text-foreground">Novo fluxo</span>,
+      actions: [],
     })
-  }, [flowName, handleSave, handleRun, setConfig])
+  }, [flowName, handleRun, handleSave, isEditorReady, setConfig])
 
   useEffect(() => {
     return () => clear()
@@ -3362,9 +4270,37 @@ export default function NovoFluxoPage() {
 
   return (
     <div className="-m-4 sm:-m-6">
-      <ReactFlowProvider>
-        <WorkflowCanvas flowName={flowName} />
-      </ReactFlowProvider>
+      {isEditorReady ? (
+        <ReactFlowProvider>
+          <WorkflowCanvas
+            ref={canvasRef}
+            flowName={flowName}
+            onFlowNameChange={setFlowName}
+            workflowSettings={workflowSettings}
+            onWorkflowSettingsChange={setWorkflowSettings}
+            workflowPlayers={availableWorkflowPlayers}
+            workflowPlayersLoading={isWorkflowPlayersLoading}
+            workflowPlayersError={currentWorkflowPlayersError}
+            selectedWorkspaceName={selectedWorkspace?.name ?? null}
+            workspaceId={selectedWorkspace?.id ?? null}
+            savedWorkflowId={savedWorkflowId}
+            onWorkflowSaved={setSavedWorkflowId}
+          />
+        </ReactFlowProvider>
+      ) : (
+        <WorkflowSetupScreen
+          flowName={flowName}
+          onFlowNameChange={setFlowName}
+          workflowSettings={workflowSettings}
+          onWorkflowSettingsChange={setWorkflowSettings}
+          workflowPlayers={availableWorkflowPlayers}
+          workflowPlayersLoading={isWorkflowPlayersLoading}
+          workflowPlayersError={currentWorkflowPlayersError}
+          selectedWorkspaceName={selectedWorkspace?.name ?? null}
+          onCancel={() => router.push("/fluxos")}
+          onCreate={() => setIsEditorReady(true)}
+        />
+      )}
     </div>
   )
 }

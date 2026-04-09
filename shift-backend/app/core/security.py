@@ -3,12 +3,23 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
-from pwdlib import PasswordHash
-from pwdlib.hashers.bcrypt import BcryptHasher
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
-password_hash = PasswordHash((BcryptHasher(),))
+try:
+    from pwdlib import PasswordHash
+    from pwdlib.hashers.bcrypt import BcryptHasher
+except ImportError:  # pragma: no cover - compatibility path for local envs
+    PasswordHash = None
+    BcryptHasher = None
+
+if PasswordHash is not None and BcryptHasher is not None:
+    password_hash = PasswordHash((BcryptHasher(),))
+    _passlib_context: CryptContext | None = None
+else:
+    password_hash = None
+    _passlib_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class TokenDecodeError(Exception):
@@ -25,11 +36,19 @@ def normalize_email(email: str) -> str:
 
 def hash_password(password: str) -> str:
     # Bcrypt has a 72-byte limit. We truncate to ensure it doesn't crash.
-    return password_hash.hash(password[:72])
+    normalized_password = password[:72]
+    if password_hash is not None:
+        return password_hash.hash(normalized_password)
+    assert _passlib_context is not None
+    return _passlib_context.hash(normalized_password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return password_hash.verify(plain_password[:72], hashed_password)
+    normalized_password = plain_password[:72]
+    if password_hash is not None:
+        return password_hash.verify(normalized_password, hashed_password)
+    assert _passlib_context is not None
+    return _passlib_context.verify(normalized_password, hashed_password)
 
 
 def hash_token(token: str) -> str:

@@ -14,6 +14,8 @@ from app.models.project import Project
 from app.models.project_extraction import ProjectExtraction
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.models.workflow import Workflow
+from app.models.workflow_execution import NodeExecution, WorkflowExecution
 from app.models.workspace import Workspace
 from app.models.workspace_player import WorkspacePlayer
 from app.models.workspace_schema_catalog import WorkspaceSchemaCatalog
@@ -40,4 +42,7 @@ __all__ = (
     "Contact",
     "DataSource",
     "WorkspaceSchemaCatalog",
+    "Workflow",
+    "WorkflowExecution",
+    "NodeExecution",
 )

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(xargs grep:*)",
+      "Bash(find . -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) ! -path \"./.next/*\" -exec grep -l \"workflow\\\\|fluxo\" {} \\\\;)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

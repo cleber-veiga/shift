@@ -1,6 +1,7 @@
 "use client"
 
 import { MorphLoader } from "@/components/ui/morph-loader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   createProjectExtraction,
   listProjectDataSources,
@@ -399,34 +400,34 @@ export default function ProjectExtractionsPage({ params }: PageProps) {
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Data Source
                   </span>
-                  <div className="relative">
-                    <Database className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <select
-                      value={form.data_source_id}
-                      onChange={(event) =>
-                        setForm((current) => ({ ...current, data_source_id: event.target.value }))
-                      }
-                      required
-                      className="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
-                    >
-                      <option value="">Selecione</option>
+                  <Select
+                    value={form.data_source_id}
+                    onValueChange={(value) =>
+                      setForm((current) => ({ ...current, data_source_id: value }))
+                    }
+                    required
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
                       {dataSources.map((source) => (
-                        <option key={source.id} value={source.id}>
+                        <SelectItem key={source.id} value={source.id}>
                           {source.name}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
+                    </SelectContent>
+                  </Select>
                 </label>
 
                 <label className="space-y-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Extraction Template
                   </span>
-                  <select
+                  <Select
                     value={form.template_id}
-                    onChange={(event) => {
-                      const templateId = event.target.value
+                    onValueChange={(value) => {
+                      const templateId = value
                       const template = templatesById.get(templateId)
                       setForm((current) => ({
                         ...current,
@@ -435,15 +436,18 @@ export default function ProjectExtractionsPage({ params }: PageProps) {
                       }))
                     }}
                     required
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-xs outline-none focus:ring-1 focus:ring-primary/20"
                   >
-                    <option value="">Selecione</option>
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
               </div>
 

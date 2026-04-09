@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type PanelProps<T> = {
   nodeData: T
@@ -236,11 +237,10 @@ export function LLMNodeConfigPanel({ nodeData, onUpdate }: PanelProps<LLMNodeCon
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className={fieldLabelClass}>Provider</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.provider}
-            onChange={(e) => {
-              const provider = e.target.value as LlmProvider
+            onValueChange={(value) => {
+              const provider = value as LlmProvider
               setForm((prev) => ({
                 ...prev,
                 provider,
@@ -248,37 +248,49 @@ export function LLMNodeConfigPanel({ nodeData, onUpdate }: PanelProps<LLMNodeCon
               }))
             }}
           >
-            <option value="openai">openai</option>
-            <option value="gemini">gemini</option>
-            <option value="anthropic">anthropic</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="openai">openai</SelectItem>
+              <SelectItem value="gemini">gemini</SelectItem>
+              <SelectItem value="anthropic">anthropic</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Credencial</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.credential_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}
           >
-            <option value="">Selecionar...</option>
-            {credentialOptions.map((credential) => (
-              <option key={credential.id} value={credential.id}>{credential.label}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecionar..." />
+            </SelectTrigger>
+            <SelectContent>
+              {credentialOptions.map((credential) => (
+                <SelectItem key={credential.id} value={credential.id}>{credential.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Model</label>
-          <select
-            className={fieldClass}
+          <Select
             value={modelNameValue}
-            onChange={(e) => setForm((prev) => ({ ...prev, model_name: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, model_name: value }))}
           >
-            {models.map((model) => (
-              <option key={model} value={model}>{model}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {models.map((model) => (
+                <SelectItem key={model} value={model}>{model}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -477,29 +489,36 @@ export function VectorStoreNodeConfigPanel({ nodeData, onUpdate }: PanelProps<Ve
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>Database provider</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.database_provider}
-            onChange={(e) => setForm((prev) => ({ ...prev, database_provider: e.target.value as VectorDatabaseProvider }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, database_provider: value as VectorDatabaseProvider }))}
           >
-            <option value="pinecone">pinecone</option>
-            <option value="qdrant">qdrant</option>
-            <option value="chroma">chroma</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pinecone">pinecone</SelectItem>
+              <SelectItem value="qdrant">qdrant</SelectItem>
+              <SelectItem value="chroma">chroma</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Credencial</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.credential_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, credential_id: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, credential_id: value }))}
           >
-            <option value="">Selecionar...</option>
-            {credentialOptions.map((credential) => (
-              <option key={credential.id} value={credential.id}>{credential.label}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecionar..." />
+            </SelectTrigger>
+            <SelectContent>
+              {credentialOptions.map((credential) => (
+                <SelectItem key={credential.id} value={credential.id}>{credential.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -537,15 +556,19 @@ export function VectorStoreNodeConfigPanel({ nodeData, onUpdate }: PanelProps<Ve
 
         <div>
           <label className={fieldLabelClass}>Embedding model</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.embedding_model}
-            onChange={(e) => setForm((prev) => ({ ...prev, embedding_model: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, embedding_model: value }))}
           >
-            {embeddingModelOptions.map((model) => (
-              <option key={model} value={model}>{model}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {embeddingModelOptions.map((model) => (
+                <SelectItem key={model} value={model}>{model}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -629,16 +652,19 @@ export function AgentNodeConfigPanel({ nodeData, onUpdate }: PanelProps<AgentNod
     >
       <div>
         <label className={fieldLabelClass}>LLM node reference</label>
-        <select
-          className={fieldClass}
+        <Select
           value={form.llm_node_reference}
-          onChange={(e) => setForm((prev) => ({ ...prev, llm_node_reference: e.target.value }))}
+          onValueChange={(value) => setForm((prev) => ({ ...prev, llm_node_reference: value }))}
         >
-          <option value="">Selecionar...</option>
-          {llmNodeOptions.map((node) => (
-            <option key={node.id} value={node.id}>{node.label}</option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecionar..." />
+          </SelectTrigger>
+          <SelectContent>
+            {llmNodeOptions.map((node) => (
+              <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

@@ -58,3 +58,7 @@ class Workspace(Base):
         back_populates="workspace",
         cascade="all, delete-orphan",
     )
+    workflows: Mapped[list["Workflow"]] = relationship(
+        back_populates="workspace",
+        cascade="all, delete-orphan",
+    )

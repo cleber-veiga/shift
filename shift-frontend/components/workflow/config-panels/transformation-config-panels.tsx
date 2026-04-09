@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type PanelProps<T> = {
   nodeData: T
@@ -206,21 +207,25 @@ export function MapperNodeConfigPanel({ nodeData, onUpdate }: PanelProps<MapperN
                   setForm((prev) => ({ ...prev, assignments: next }))
                 }}
               />
-              <select
-                className={fieldClass}
+              <Select
                 value={assignment.type}
-                onChange={(e) => {
+                onValueChange={(value) => {
                   const next = [...form.assignments]
-                  next[index] = { ...next[index], type: e.target.value as AssignmentType }
+                  next[index] = { ...next[index], type: value as AssignmentType }
                   setForm((prev) => ({ ...prev, assignments: next }))
                 }}
               >
-                <option value="string">string</option>
-                <option value="number">number</option>
-                <option value="boolean">boolean</option>
-                <option value="object">object</option>
-                <option value="array">array</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="string">string</SelectItem>
+                  <SelectItem value="number">number</SelectItem>
+                  <SelectItem value="boolean">boolean</SelectItem>
+                  <SelectItem value="object">object</SelectItem>
+                  <SelectItem value="array">array</SelectItem>
+                </SelectContent>
+              </Select>
               <button
                 type="button"
                 className="h-9 rounded-md border border-gray-300 px-3 text-xs"
@@ -310,14 +315,18 @@ export function CodeNodeConfigPanel({ nodeData, onUpdate }: PanelProps<CodeNodeC
     >
       <div>
         <label className={fieldLabelClass}>Language</label>
-        <select
-          className={fieldClass}
+        <Select
           value={form.language}
-          onChange={(e) => setForm((prev) => ({ ...prev, language: e.target.value as CodeLanguage }))}
+          onValueChange={(value) => setForm((prev) => ({ ...prev, language: value as CodeLanguage }))}
         >
-          <option value="python">python</option>
-          <option value="javascript">javascript</option>
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="python">python</SelectItem>
+            <SelectItem value="javascript">javascript</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div>
@@ -414,16 +423,20 @@ export function DateTimeNodeConfigPanel({ nodeData, onUpdate }: PanelProps<DateT
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>From format</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.from_format}
-            onChange={(e) => setForm((prev) => ({ ...prev, from_format: e.target.value as DateFromFormat }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, from_format: value as DateFromFormat }))}
           >
-            <option value="auto">auto</option>
-            <option value="ISO8601">ISO8601</option>
-            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-            <option value="X">X (timestamp)</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">auto</SelectItem>
+              <SelectItem value="ISO8601">ISO8601</SelectItem>
+              <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+              <SelectItem value="X">X (timestamp)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -440,28 +453,36 @@ export function DateTimeNodeConfigPanel({ nodeData, onUpdate }: PanelProps<DateT
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>From timezone</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.from_timezone}
-            onChange={(e) => setForm((prev) => ({ ...prev, from_timezone: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, from_timezone: value }))}
           >
-            <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-            <option value="UTC">UTC</option>
-            <option value="America/New_York">America/New_York</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="America/Sao_Paulo">America/Sao_Paulo</SelectItem>
+              <SelectItem value="UTC">UTC</SelectItem>
+              <SelectItem value="America/New_York">America/New_York</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>To timezone</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.to_timezone}
-            onChange={(e) => setForm((prev) => ({ ...prev, to_timezone: e.target.value }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, to_timezone: value }))}
           >
-            <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-            <option value="UTC">UTC</option>
-            <option value="America/New_York">America/New_York</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="America/Sao_Paulo">America/Sao_Paulo</SelectItem>
+              <SelectItem value="UTC">UTC</SelectItem>
+              <SelectItem value="America/New_York">America/New_York</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -505,32 +526,40 @@ export function DataConverterNodeConfigPanel({ nodeData, onUpdate }: PanelProps<
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className={fieldLabelClass}>Input format</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.input_format}
-            onChange={(e) => setForm((prev) => ({ ...prev, input_format: e.target.value as DataFormat }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, input_format: value as DataFormat }))}
           >
-            <option value="json">json</option>
-            <option value="xml">xml</option>
-            <option value="csv">csv</option>
-            <option value="text">text</option>
-            <option value="base64">base64</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="json">json</SelectItem>
+              <SelectItem value="xml">xml</SelectItem>
+              <SelectItem value="csv">csv</SelectItem>
+              <SelectItem value="text">text</SelectItem>
+              <SelectItem value="base64">base64</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className={fieldLabelClass}>Output format</label>
-          <select
-            className={fieldClass}
+          <Select
             value={form.output_format}
-            onChange={(e) => setForm((prev) => ({ ...prev, output_format: e.target.value as DataFormat }))}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, output_format: value as DataFormat }))}
           >
-            <option value="json">json</option>
-            <option value="xml">xml</option>
-            <option value="csv">csv</option>
-            <option value="text">text</option>
-            <option value="base64">base64</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="json">json</SelectItem>
+              <SelectItem value="xml">xml</SelectItem>
+              <SelectItem value="csv">csv</SelectItem>
+              <SelectItem value="text">text</SelectItem>
+              <SelectItem value="base64">base64</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿"use client"
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿"use client"
 
 import {
   Bell,
@@ -22,6 +22,7 @@ import { useState, useRef, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { PreferencesModal } from "@/components/dashboard/preferences-modal"
 import { MorphLoader } from "@/components/ui/morph-loader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const orgRoleLabels: Record<string, string> = {
   OWNER: "Dono",
@@ -656,18 +657,21 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
                 <label className="mb-1 block text-[10px] font-semibold text-foreground uppercase tracking-wider">
                   ERP
                 </label>
-                <select
+                <Select
                   value={workspaceErpId}
-                  onChange={(event) => setWorkspaceErpId(event.target.value)}
-                  className="h-9 w-full rounded-xl border border-input bg-background/70 px-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+                  onValueChange={(value) => setWorkspaceErpId(value)}
                 >
-                  <option value="">Nenhum</option>
-                  {availableErps.map((erp) => (
-                    <option key={erp.id} value={erp.id}>
-                      {erp.name} ({erp.code})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Nenhum" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableErps.map((erp) => (
+                      <SelectItem key={erp.id} value={erp.id}>
+                        {erp.name} ({erp.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {isLoadingErps ? (
                   <p className="mt-1 text-[9px] text-muted-foreground">Carregando ERPs...</p>
                 ) : null}
