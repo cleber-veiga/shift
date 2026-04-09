@@ -34,8 +34,11 @@ const EMPTY_FORM: FormState = {
   batch_size: "",
 }
 
-const RUNNING_STATUSES = new Set(["PENDING", "RUNNING"] as const)
 type ExtractionExecutionStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED"
+const RUNNING_STATUSES: ReadonlySet<ExtractionExecutionStatus> = new Set<ExtractionExecutionStatus>([
+  "PENDING",
+  "RUNNING",
+])
 
 function getExecutionStatus(item: ProjectExtraction): ExtractionExecutionStatus | null {
   const nested = item.last_execution?.status

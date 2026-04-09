@@ -1,4 +1,4 @@
-﻿﻿﻿﻿"use client"
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿"use client"
 
 import {
   Bell,
@@ -10,15 +10,14 @@ import {
   Edit2,
   LogOut,
   PanelLeft,
-  Play,
   Plus,
-  Save,
   Settings,
   UserRound,
   X,
 } from "lucide-react"
 import { listErps, logout, type ERP } from "@/lib/auth"
 import { useDashboard } from "@/lib/context/dashboard-context"
+import { useDashboardHeader } from "@/lib/context/header-context"
 import { useState, useRef, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { PreferencesModal } from "@/components/dashboard/preferences-modal"
@@ -53,6 +52,7 @@ function HeaderTooltipTrigger({ text, children }: { text: string; children: Reac
 export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { config } = useDashboardHeader()
   const orgMenuRef = useRef<HTMLDivElement | null>(null)
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
@@ -72,7 +72,6 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
   const [isLoadingErps, setIsLoadingErps] = useState(false)
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false)
   const [createWorkspaceError, setCreateWorkspaceError] = useState("")
-  const [workflowName, setWorkflowName] = useState("Novo fluxo")
 
   const {
     selectedOrganization,
@@ -119,8 +118,6 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
     if (isMainPath) return "Principal"
     return "Projeto"
   }
-
-  const isWorkflowBuilder = pathname.startsWith("/fluxos/novo")
 
   useEffect(() => {
     const onDocumentClick = (event: MouseEvent) => {
@@ -302,45 +299,36 @@ export function Header({ sidebarVisible, setSidebarVisible }: HeaderProps) {
             <span className="text-muted-foreground">{getGroupTitle()}</span>
             <ChevronRight className="size-4 text-muted-foreground/50" />
             <span className="font-medium text-foreground">{getPageTitle()}</span>
-            {isWorkflowBuilder ? (
+            {config.breadcrumb ? (
               <>
                 <ChevronRight className="size-4 text-muted-foreground/50" />
-                <input
-                  type="text"
-                  value={workflowName}
-                  onChange={(event) => setWorkflowName(event.target.value)}
-                  className="h-7 w-44 rounded-md border border-transparent bg-transparent px-2.5 text-xs text-foreground outline-none transition-all focus:bg-background/60 focus:ring-1 focus:ring-primary/20"
-                  aria-label="Nome do workflow"
-                />
+                {config.breadcrumb}
               </>
             ) : null}
           </nav>
         </div>
 
         <div className="flex items-center gap-2">
-          {isWorkflowBuilder ? (
-            <>
-              <HeaderTooltipTrigger text="Salvar rascunho">
-                <button
-                  type="button"
-                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  aria-label="Salvar rascunho"
-                >
-                  <Save className="size-4" />
-                </button>
-              </HeaderTooltipTrigger>
-              <HeaderTooltipTrigger text="Publicar">
-                <button
-                  type="button"
-                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  aria-label="Publicar"
-                >
-                  <Play className="size-4" />
-                </button>
-              </HeaderTooltipTrigger>
-            </>
+          {config.actions?.length ? (
+            <div className="flex items-center gap-1">
+              {config.actions.map((action) => {
+                const Icon = action.icon
+                return (
+                  <HeaderTooltipTrigger key={action.key} text={action.label}>
+                    <button
+                      type="button"
+                      onClick={action.onClick}
+                      disabled={action.disabled}
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60"
+                      aria-label={action.label}
+                    >
+                      <Icon className="size-4" />
+                    </button>
+                  </HeaderTooltipTrigger>
+                )
+              })}
+            </div>
           ) : null}
-
           <div ref={orgMenuRef} className="relative">
             <HeaderTooltipTrigger text="Selecione a Organização">
               <button

@@ -1,19 +1,18 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
 import {
   CalendarClock,
-  Edit2,
   GitBranch,
   LayoutGrid,
   List,
-  Play,
   Plus,
+  Play,
   Search,
   Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 type FlowStatus = "ativo" | "rascunho" | "pausado"
 
@@ -86,8 +85,6 @@ export default function FluxosPage() {
     })
   }, [search, statusFilter])
 
-  const openCreate = () => router.push("/fluxos/novo")
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card/50 p-1.5">
@@ -142,12 +139,11 @@ export default function FluxosPage() {
           </div>
 
           <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md bg-foreground px-2 text-[11px] font-semibold text-background transition-opacity hover:opacity-90"
+            onClick={() => router.push("/fluxos/novo")}
+            className="inline-flex h-7 items-center gap-2 rounded-md bg-primary px-3 text-[11px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
-            <Plus className="size-3" />
-            Criar novo
+            <Plus className="size-3.5" />
+            Novo fluxo
           </button>
         </div>
       </div>
@@ -195,12 +191,6 @@ export default function FluxosPage() {
                     <button className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                       <Play className="size-3.5" />
                     </button>
-                    <button
-                      onClick={openCreate}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <Edit2 className="size-3.5" />
-                    </button>
                     <button className="rounded-md p-1.5 text-destructive/50 transition-colors hover:bg-muted hover:text-destructive">
                       <Trash2 className="size-3.5" />
                     </button>
@@ -212,14 +202,14 @@ export default function FluxosPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <button
-              onClick={openCreate}
-              className="group flex h-[170px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border transition-all hover:border-primary/50 hover:bg-muted/30"
+              onClick={() => router.push("/fluxos/novo")}
+              className="flex h-[170px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border transition-all hover:border-primary/50 hover:bg-muted/30 group"
             >
               <div className="flex size-10 items-center justify-center rounded-2xl bg-muted transition-colors group-hover:bg-primary/10 group-hover:text-primary">
                 <Plus className="size-5" />
               </div>
               <div className="text-center">
-                <p className="text-xs font-semibold">Criar novo</p>
+                <p className="text-xs font-semibold">Adicionar</p>
                 <p className="text-[10px] text-muted-foreground">Novo fluxo</p>
               </div>
             </button>
@@ -258,12 +248,6 @@ export default function FluxosPage() {
                     <Play className="size-3.5" />
                     Executar
                   </button>
-                  <button
-                    onClick={openCreate}
-                    className="rounded-xl bg-muted p-2 text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Edit2 className="size-3.5" />
-                  </button>
                 </div>
               </div>
             ))}
@@ -276,14 +260,14 @@ export default function FluxosPage() {
           </div>
           <h3 className="text-lg font-semibold">Nenhum fluxo encontrado</h3>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            Ajuste os filtros ou crie um novo fluxo para comecar.
+            Ajuste os filtros para visualizar os workflows cadastrados.
           </p>
           <button
-            onClick={openCreate}
-            className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            onClick={() => router.push("/fluxos/novo")}
+            className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Plus className="size-4" />
-            Criar primeiro fluxo
+            Adicionar Primeiro
           </button>
         </div>
       )}
